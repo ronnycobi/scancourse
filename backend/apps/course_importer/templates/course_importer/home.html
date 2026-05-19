@@ -1,0 +1,153 @@
+{% extends 'course_importer/_base.html' %}
+
+{% block title %}New Import{% endblock %}
+
+{% block content %}
+
+<h1>Import courses</h1>
+<p class="subtitle">Upload a prospectus PDF, paste a URL, or paste raw text. Pure Python parser — no AI.</p>
+
+<div class="tabs" id="tabs">
+  <button type="button" class="tab active" data-tab="url">🔗 From URL</button>
+  <button type="button" class="tab" data-tab="pdf">📄 From PDF</button>
+  <button type="button" class="tab" data-tab="text">📝 Paste Text</button>
+</div>
+
+<!-- ── URL ─────────────────────────────────────────────── -->
+<div class="panel tab-content" id="tab-url">
+  <form method="post" action="{% url 'importer:parse-url' %}">
+    {% csrf_token %}
+    <div class="form-grid">
+      <div>
+        <label>University programme URL</label>
+        <input type="url" name="url" required placeholder="https://www.up.ac.za/undergraduate">
+        <small style="color:var(--text-2); font-size:11px;">
+          UP <code>/undergraduate</code> auto-iterates all 10 faculties (~3 min, ~100 programmes).
+          Pasting a single programme page returns just that one.
+        </small>
+      </div>
+      <div>
+        <label>Institution</label>
+        <select name="institution">
+          {% for code, name in institutions %}
+          <option value="{{ code }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Parse URL</button>
+  </form>
+</div>
+
+<!-- ── PDF ─────────────────────────────────────────────── -->
+<div class="panel tab-content" id="tab-pdf" style="display:none;">
+  <form method="post" action="{% url 'importer:parse-pdf' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="form-grid">
+      <div>
+        <label>PDF Prospectus (max 50MB)</label>
+        <div class="file-drop" id="file-drop">
+          <div class="icon">📎</div>
+          <p><strong>Click to upload</strong> or drag &amp; drop</p>
+          <input type="file" name="pdf" id="pdf-input" accept=".pdf" required>
+        </div>
+        <div id="pdf-name" style="margin-top:8px; font-size:13px; color:var(--text-2);"></div>
+      </div>
+      <div>
+        <label>Institution</label>
+        <select name="institution">
+          {% for code, name in institutions %}
+          <option value="{{ code }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary" id="btn-pdf" disabled>Parse PDF</button>
+  </form>
+</div>
+
+<!-- ── Text ────────────────────────────────────────────── -->
+<div class="panel tab-content" id="tab-text" style="display:none;">
+  <form method="post" action="{% url 'importer:parse-text' %}">
+    {% csrf_token %}
+    <div class="form-grid">
+      <div>
+        <label>Paste raw text</label>
+        <textarea name="text" required placeholder="Paste programme text here…"></textarea>
+      </div>
+      <div>
+        <label>Institution</label>
+        <select name="institution">
+          {% for code, name in institutions %}
+          <option value="{{ code }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Parse Text</button>
+  </form>
+</div>
+
+{% if recent_jobs %}
+<div class="panel">
+  <h2>Recent imports</h2>
+  <table>
+    <thead><tr><th>ID</th><th>Source</th><th>Institution</th><th>Status</th><th>Found</th><th>Saved</th><th>When</th><th></th></tr></thead>
+    <tbody>
+    {% for j in recent_jobs %}
+      <tr>
+        <td>#{{ j.id }}</td>
+        <td>{{ j.get_source_type_display }}</td>
+        <td>{{ j.institution_short_name|default:'—' }}</td>
+        <td><span class="badge {{ j.status }}">{{ j.get_status_display }}</span></td>
+        <td>{{ j.course_count }}</td>
+        <td>{{ j.saved_count }}</td>
+        <td>{{ j.created_at|date:"d M Y H:i" }}</td>
+        <td><a href="{% url 'importer:review' j.id %}" class="btn btn-outline" style="padding:4px 12px; font-size:12px;">View</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Tabs
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(t => t.style.display='none');
+      document.getElementById('tab-' + tab.dataset.tab).style.display='block';
+    });
+  });
+
+  // PDF drag & drop
+  const drop = document.getElementById('file-drop');
+  const input = document.getElementById('pdf-input');
+  const btn = document.getElementById('btn-pdf');
+  const name = document.getElementById('pdf-name');
+
+  if (drop) {
+    drop.addEventListener('click', () => input.click());
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+    drop.addEventListener('drop', e => {
+      e.preventDefault(); drop.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) {
+        input.files = e.dataTransfer.files;
+        input.dispatchEvent(new Event('change'));
+      }
+    });
+    input.addEventListener('change', () => {
+      if (input.files[0]) {
+        name.textContent = `📄 ${input.files[0].name} (${(input.files[0].size/1024/1024).toFixed(1)} MB)`;
+        btn.disabled = false;
+      }
+    });
+  }
+</script>
+{% endblock %}

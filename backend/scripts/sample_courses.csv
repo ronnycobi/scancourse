@@ -1,0 +1,11 @@
+course_name,field,level,duration_years,fees_per_year,description,career_opportunities,salary_min,salary_max,institution_short_name,min_aps,application_deadline
+BCom Marketing Management,business,degree,3,52000,"Three-year degree covering marketing strategy, digital marketing, and consumer behaviour.","Marketing Manager, Brand Manager, Digital Marketer, Market Researcher",18000,55000,UJ,28,2025-09-30
+BSc Information Technology,ict,degree,3,58000,"Three-year IT degree with specialisations in software development, networks, and data science.","Software Developer, Systems Analyst, Database Administrator",22000,75000,UJ,30,2025-09-30
+BA Politics & International Relations,humanities,degree,3,46000,"Studies of political systems, governance, and global affairs.","Diplomat, Policy Analyst, Political Journalist, NGO Manager",16000,45000,UJ,26,2025-09-30
+BSc Construction Management,built_environment,degree,3,62000,"Project management for construction industry.","Construction Manager, Project Manager, Quantity Surveyor",24000,65000,UJ,28,2025-09-30
+BCom Industrial Psychology,humanities,degree,3,52000,"Workplace behaviour and HR management.","HR Manager, Talent Manager, Organisational Consultant",18000,55000,UJ,26,2025-09-30
+BA Communication & Media,arts,degree,3,46000,"Journalism, PR, digital media production.","Journalist, PR Manager, Content Producer",15000,45000,UJ,24,2025-09-30
+BCom Logistics Management,business,degree,3,52000,"Supply chain and operations management.","Logistics Manager, Supply Chain Analyst, Operations Manager",20000,55000,UJ,26,2025-09-30
+BSc Quantity Surveying,built_environment,degree,4,65000,"Cost management for construction.","Quantity Surveyor, Cost Engineer, Project Manager",26000,70000,UJ,30,2025-09-30
+BA Tourism Development,humanities,degree,3,42000,"Tourism industry, destination marketing, hospitality.","Tourism Manager, Travel Consultant, Event Coordinator",14000,40000,UJ,22,2025-09-30
+BCom Human Resource Management,business,degree,3,50000,"HR strategy, employment law, talent development.","HR Manager, Recruiter, Training Manager",17000,52000,UJ,26,2025-09-30

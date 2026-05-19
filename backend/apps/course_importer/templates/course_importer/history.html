@@ -1,0 +1,39 @@
+{% extends 'course_importer/_base.html' %}
+{% block title %}Import History{% endblock %}
+
+{% block content %}
+<h1>Import history</h1>
+<p class="subtitle">Last 50 import jobs across all users.</p>
+
+<div class="panel">
+{% if jobs %}
+  <table>
+    <thead><tr><th>ID</th><th>User</th><th>Source</th><th>Institution</th><th>Status</th><th>Found</th><th>Saved</th><th>When</th><th></th></tr></thead>
+    <tbody>
+    {% for j in jobs %}
+      <tr>
+        <td>#{{ j.id }}</td>
+        <td>{{ j.user.email|default:'—' }}</td>
+        <td>{{ j.get_source_type_display }}{% if j.source_url %}<br><small style="color:var(--hint);">{{ j.source_url|truncatechars:40 }}</small>{% elif j.source_filename %}<br><small style="color:var(--hint);">{{ j.source_filename|truncatechars:40 }}</small>{% endif %}</td>
+        <td>{{ j.institution_short_name|default:'—' }}</td>
+        <td><span class="badge {{ j.status }}">{{ j.get_status_display }}</span></td>
+        <td>{{ j.course_count }}</td>
+        <td>{{ j.saved_count }}</td>
+        <td>{{ j.created_at|date:"d M Y H:i" }}</td>
+        <td><a href="{% url 'importer:review' j.id %}" class="btn btn-outline" style="padding:4px 12px; font-size:12px;">Review</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <div class="empty-state">
+    <div class="icon">📭</div>
+    <h2>No imports yet</h2>
+    <p>Run your first import to see it here.</p>
+    <div style="margin-top:24px;">
+      <a href="{% url 'importer:home' %}" class="btn btn-primary">Start importing</a>
+    </div>
+  </div>
+{% endif %}
+</div>
+{% endblock %}

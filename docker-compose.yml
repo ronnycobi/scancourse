@@ -1,0 +1,129 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: scancourse
+      POSTGRES_USER: scancourse
+      POSTGRES_PASSWORD: scancourse_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scancourse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.7
+    restart: unless-stopped
+    environment:
+      - MEILI_MASTER_KEY=dev-master-key-change-in-prod
+      - MEILI_ENV=development
+    volumes:
+      - meilisearch_data:/meili_data
+    ports:
+      - "7700:7700"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate --settings=scancourse.settings.development &&
+             python manage.py runserver 0.0.0.0:8000 --settings=scancourse.settings.development"
+    environment:
+      - DJANGO_SETTINGS_MODULE=scancourse.settings.development
+      - DATABASE_URL=postgresql://scancourse:scancourse_dev_password@db:5432/scancourse
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - DEBUG=True
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+      - MEILISEARCH_URL=http://meilisearch:7700
+      - MEILISEARCH_MASTER_KEY=dev-master-key-change-in-prod
+    volumes:
+      - ./backend:/app
+      - media_files:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: celery -A scancourse worker --loglevel=info --concurrency=2
+    environment:
+      - DJANGO_SETTINGS_MODULE=scancourse.settings.development
+      - DATABASE_URL=postgresql://scancourse:scancourse_dev_password@db:5432/scancourse
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - MEILISEARCH_URL=http://meilisearch:7700
+      - MEILISEARCH_MASTER_KEY=dev-master-key-change-in-prod
+    volumes:
+      - ./backend:/app
+      - media_files:/app/media
+    depends_on:
+      - backend
+      - redis
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: celery -A scancourse beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      - DJANGO_SETTINGS_MODULE=scancourse.settings.development
+      - DATABASE_URL=postgresql://scancourse:scancourse_dev_password@db:5432/scancourse
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - backend
+      - redis
+
+  scrapers:
+    build:
+      context: ./scrapers
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - API_BASE_URL=http://backend:8000/api/v1
+      - SCRAPER_EMAIL=admin@scancourse.co.za
+      - SCRAPER_PASSWORD=changeme123
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  media_files:
+  meilisearch_data:

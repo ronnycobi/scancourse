@@ -1,0 +1,234 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zu\n"
+
+# Onboarding & profile
+msgid "Welcome back!"
+msgstr "Wamukelekile!"
+
+msgid "Sign in to plan your future"
+msgstr "Ngena ukuze uhlele ikusasa lakho"
+
+msgid "Email address"
+msgstr "Ikheli le-imeyili"
+
+msgid "Password"
+msgstr "Iphasiwedi"
+
+msgid "Sign In"
+msgstr "Ngena"
+
+msgid "Sign up"
+msgstr "Bhalisa"
+
+msgid "Forgot password?"
+msgstr "Ukhohlwe iphasiwedi?"
+
+msgid "Don't have an account?"
+msgstr "Awunayo i-akhawunti?"
+
+msgid "Create Account"
+msgstr "Dala i-akhawunti"
+
+msgid "Continue with Google"
+msgstr "Qhubeka nge-Google"
+
+msgid "What grade are you in?"
+msgstr "Ukuyiphi ibanga?"
+
+msgid "Which province are you in?"
+msgstr "Ukuyiphi isifundazwe?"
+
+msgid "What field interests you?"
+msgstr "Yimuphi umkhakha okuthandayo?"
+
+msgid "Where do you want to study?"
+msgstr "Ufuna ukufunda kuphi?"
+
+msgid "What's your dream career?"
+msgstr "Yiliphi iphupho lakho lomsebenzi?"
+
+msgid "Continue"
+msgstr "Qhubeka"
+
+msgid "Skip"
+msgstr "Yeqa"
+
+msgid "Get Started"
+msgstr "Qalisa"
+
+# Home / dashboard
+msgid "Calculate your APS"
+msgstr "Bala i-APS yakho"
+
+msgid "Upload your report card to find matching courses"
+msgstr "Layisha ikhadi lakho lerisidi ukuthola izifundo ezifanele"
+
+msgid "Upload"
+msgstr "Layisha"
+
+msgid "Camera"
+msgstr "Ikhamera"
+
+msgid "Enter Marks"
+msgstr "Faka Amamaki"
+
+msgid "Your APS Score"
+msgstr "Iskoa sakho se-APS"
+
+msgid "Excellent"
+msgstr "Kuhle kakhulu"
+
+msgid "Good"
+msgstr "Kuhle"
+
+msgid "Fair"
+msgstr "Kulingene"
+
+msgid "Quick Actions"
+msgstr "Izenzo Ezisheshayo"
+
+msgid "Find Courses"
+msgstr "Thola Izifundo"
+
+msgid "Bursaries"
+msgstr "Ama-Bursary"
+
+msgid "Ask AI"
+msgstr "Buza i-AI"
+
+msgid "Universities Still Open"
+msgstr "Amanyuvesi Asavulekile"
+
+msgid "Bursaries Closing Soon"
+msgstr "Ama-Bursary Avalwa Maduze"
+
+msgid "See all"
+msgstr "Bona konke"
+
+# Scanner
+msgid "Scan Report Card"
+msgstr "Skena Ikhadi le-Risidi"
+
+msgid "Upload your report card"
+msgstr "Layisha ikhadi lakho lerisidi"
+
+msgid "Take a Photo"
+msgstr "Thatha Isithombe"
+
+msgid "Choose from Gallery"
+msgstr "Khetha ku-Gallery"
+
+msgid "Upload PDF"
+msgstr "Layisha i-PDF"
+
+msgid "Enter marks manually instead"
+msgstr "Esikhundleni salokho, faka amamaki ngesandla"
+
+msgid "Calculate My APS"
+msgstr "Bala i-APS Yami"
+
+msgid "Processing your report card..."
+msgstr "Sicubungula ikhadi lakho lerisidi..."
+
+# Courses
+msgid "Eligible"
+msgstr "Ufanelekile"
+
+msgid "Stretch"
+msgstr "Phenyula"
+
+msgid "Alternatives"
+msgstr "Ezinye"
+
+msgid "Search courses..."
+msgstr "Sesha izifundo..."
+
+msgid "About this course"
+msgstr "Mayelana nalesi sifundo"
+
+msgid "Career Opportunities"
+msgstr "Amathuba Omsebenzi"
+
+msgid "Apply Now"
+msgstr "Faka Isicelo Manje"
+
+msgid "Institutions Offering This"
+msgstr "Izikhungo Ezifundisa Lokhu"
+
+# Bursaries
+msgid "Field"
+msgstr "Umkhakha"
+
+msgid "Province"
+msgstr "Isifundazwe"
+
+msgid "Type"
+msgstr "Uhlobo"
+
+msgid "Deadline"
+msgstr "Umkhawulo wesikhathi"
+
+# Profile
+msgid "My Profile"
+msgstr "Iphrofayili Yami"
+
+msgid "Sign Out"
+msgstr "Phuma"
+
+msgid "Saved Items"
+msgstr "Izinto Ezigciniwe"
+
+msgid "My Reports"
+msgstr "Imibiko Yami"
+
+msgid "Notifications"
+msgstr "Izaziso"
+
+msgid "Settings"
+msgstr "Izilungiselelo"
+
+msgid "Language"
+msgstr "Ulimi"
+
+msgid "Privacy"
+msgstr "Ubumfihlo"
+
+# AI assistant
+msgid "Your study guide"
+msgstr "Umholi wakho wokufunda"
+
+msgid "Ask me anything about studying..."
+msgstr "Ngibuze noma yini mayelana nokufunda..."
+
+msgid "What can I study with APS"
+msgstr "Yini engingayifunda nge-APS"
+
+# Errors / system
+msgid "Something went wrong. Please try again."
+msgstr "Kukhona okungahambanga kahle. Sicela uzame futhi."
+
+msgid "Loading..."
+msgstr "Iyalayishwa..."
+
+msgid "No results found"
+msgstr "Akukho miphumela etholakele"
+
+msgid "Try adjusting your filters"
+msgstr "Zama ukushintsha izihlungi zakho"
+
+msgid "Save"
+msgstr "Londoloza"
+
+msgid "Cancel"
+msgstr "Khansela"
+
+msgid "Submit"
+msgstr "Thumela"
+
+msgid "Yes"
+msgstr "Yebo"
+
+msgid "No"
+msgstr "Cha"

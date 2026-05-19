@@ -1,0 +1,66 @@
+# ── Secrets ────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+*.pem
+*.key
+firebase-credentials.json
+firebase-service-account.json
+google-services.json
+**/google-services.json
+keystore.jks
+**/keystore.jks
+key.properties
+
+# ── Python ─────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.venv/
+venv/
+env/
+*.sqlite3
+*.sqlite3-journal
+backend/media/
+
+# ── Flutter / Dart ─────────────────────────────────────────────────────
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/build/
+**/ios/Flutter/ephemeral/
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/App.framework/
+**/ios/Flutter/Flutter.framework/
+**/android/.gradle/
+**/android/captures/
+**/android/gradlew*
+**/android/local.properties
+**/android/key.properties
+**/.idea/
+
+# ── Node / JS ──────────────────────────────────────────────────────────
+node_modules/
+
+# ── Editors / OS ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# ── Logs ───────────────────────────────────────────────────────────────
+*.log
+celerybeat-schedule
+celerybeat.pid
+
+# ── Mockups / large binaries ───────────────────────────────────────────
+mockup/screenshots/*.png
+*.apk
+*.aab

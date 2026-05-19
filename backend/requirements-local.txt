@@ -1,0 +1,23 @@
+# Minimal deps for local SQLite-based dev (no Docker, no heavy services).
+# For the full stack, use requirements.txt with Docker.
+Django==5.0.6
+djangorestframework==3.15.1
+djangorestframework-simplejwt==5.3.1
+django-cors-headers==4.3.1
+django-environ==0.11.2
+django-filter==23.5
+django-celery-beat==2.6.0
+django-celery-results==2.5.1
+celery==5.3.6
+Pillow==10.4.0
+google-generativeai==0.7.2
+requests==2.31.0
+drf-spectacular==0.27.1
+django-ratelimit==4.1.0
+phonenumbers==8.13.32
+twilio==9.0.4
+cryptography==42.0.5
+python-slugify==8.0.4
+social-auth-app-django==5.4.0
+google-auth==2.29.0
+whitenoise==6.6.0

@@ -1,0 +1,74 @@
+# DigitalOcean App Platform spec for Scancourse backend.
+#
+# To deploy:
+#   1. Push this repo to GitHub
+#   2. Cloud Console → Apps → Create App → connect to GitHub repo
+#   3. App Platform reads this file automatically
+#   4. Set the secret env vars (SECRET_KEY, GEMINI_API_KEY) in the dashboard
+#   5. Deploy
+name: scancourse
+region: ams   # Amsterdam — closest to SA available on App Platform
+
+services:
+  - name: web
+    source_dir: backend
+    dockerfile_path: backend/Dockerfile
+    github:
+      branch: main
+      deploy_on_push: true
+    instance_size_slug: basic-xxs   # 512MB / $5/mo to start
+    instance_count: 1
+    http_port: 8000
+    routes:
+      - path: /
+    health_check:
+      http_path: /api/v1/courses/
+      initial_delay_seconds: 60
+      period_seconds: 30
+    run_command: >
+      python manage.py migrate --noinput &&
+      gunicorn scancourse.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 2
+      --timeout 120
+      --access-logfile -
+    envs:
+      - key: DJANGO_SETTINGS_MODULE
+        value: scancourse.settings.production
+        scope: RUN_AND_BUILD_TIME
+
+      - key: SECRET_KEY
+        value: change-me-set-in-dashboard
+        type: SECRET
+        scope: RUN_TIME
+
+      - key: ALLOWED_HOSTS
+        value: ${APP_DOMAIN},${_self.PUBLIC_URL}
+        scope: RUN_TIME
+
+      - key: DATABASE_URL
+        value: ${db.DATABASE_URL}
+        scope: RUN_TIME
+
+      # Set these in the App Platform dashboard after first deploy
+      - key: GEMINI_API_KEY
+        value: ""
+        type: SECRET
+        scope: RUN_TIME
+
+      - key: GOOGLE_CLOUD_API_KEY
+        value: ""
+        type: SECRET
+        scope: RUN_TIME
+
+      - key: DEFAULT_FROM_EMAIL
+        value: noreply@scancourse.co.za
+        scope: RUN_TIME
+
+databases:
+  - name: db
+    engine: PG
+    version: "16"
+    size: db-s-dev-database   # ~$7/mo dev tier
+    num_nodes: 1
+    production: false
