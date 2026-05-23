@@ -26,7 +26,7 @@ API_TOKEN = os.environ.get('SCRAPER_API_TOKEN', '')
 def get_admin_token():
     try:
         resp = requests.post(f'{API_BASE_URL}/auth/login/', json={
-            'email': os.environ.get('SCRAPER_EMAIL', 'admin@scancourse.co.za'),
+            'email': os.environ.get('SCRAPER_EMAIL', 'info@scancourse.co.za'),
             'password': os.environ.get('SCRAPER_PASSWORD', 'changeme123'),
         }, timeout=10)
         return resp.json().get('access', '')

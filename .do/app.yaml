@@ -62,7 +62,7 @@ services:
         scope: RUN_TIME
 
       - key: DEFAULT_FROM_EMAIL
-        value: noreply@scancourse.co.za
+        value: info@scancourse.co.za
         scope: RUN_TIME
 
 databases:

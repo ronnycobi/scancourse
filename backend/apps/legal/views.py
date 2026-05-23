@@ -209,7 +209,7 @@ def build_user_data_export(user) -> dict:
         'export_meta': {
             'generated_at': timezone.now().isoformat(),
             'data_controller': 'Scancourse (Pty) Ltd',
-            'contact': 'privacy@scancourse.co.za',
+            'contact': 'info@scancourse.co.za',
         },
     }
 

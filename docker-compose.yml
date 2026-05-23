@@ -118,7 +118,7 @@ services:
     restart: unless-stopped
     environment:
       - API_BASE_URL=http://backend:8000/api/v1
-      - SCRAPER_EMAIL=admin@scancourse.co.za
+      - SCRAPER_EMAIL=info@scancourse.co.za
       - SCRAPER_PASSWORD=changeme123
     depends_on:
       - backend

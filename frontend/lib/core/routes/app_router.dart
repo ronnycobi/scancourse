@@ -11,6 +11,7 @@ import '../../presentation/screens/scanner/scanner_screen.dart';
 import '../../presentation/screens/scanner/manual_entry_screen.dart';
 import '../../presentation/screens/scanner/reports_screen.dart';
 import '../../presentation/screens/scanner/results_screen.dart';
+import '../../presentation/screens/scanner/report_edit_screen.dart';
 import '../../presentation/screens/courses/courses_screen.dart';
 import '../../presentation/screens/courses/course_detail_screen.dart';
 import '../../presentation/screens/bursaries/bursaries_screen.dart';
@@ -84,6 +85,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/scanner', builder: (_, __) => const ScannerScreen()),
       GoRoute(path: '/manual-entry', builder: (_, __) => const ManualEntryScreen()),
       GoRoute(path: '/reports', builder: (_, __) => const ReportsScreen()),
+      GoRoute(
+        path: '/reports/:id',
+        builder: (_, state) =>
+            ReportEditScreen(reportId: int.parse(state.pathParameters['id']!)),
+      ),
       GoRoute(
         path: '/results',
         builder: (_, state) => ResultsScreen(extra: state.extra as Map<String, dynamic>?),

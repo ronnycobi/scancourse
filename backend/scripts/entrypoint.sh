@@ -14,8 +14,8 @@ echo "Creating superuser if needed..."
 python manage.py shell --settings=scancourse.settings.production -c "
 from django.contrib.auth import get_user_model
 User = get_user_model()
-if not User.objects.filter(email='admin@scancourse.co.za').exists():
-    User.objects.create_superuser(email='admin@scancourse.co.za', username='admin', password='changeme123')
+if not User.objects.filter(email='info@scancourse.co.za').exists():
+    User.objects.create_superuser(email='info@scancourse.co.za', username='admin', password='changeme123')
     print('Superuser created.')
 "
 

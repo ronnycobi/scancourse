@@ -38,6 +38,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider).user;
     final apsAsync = ref.watch(latestApsProvider);
+    final reportsAsync = ref.watch(reportListProvider);
+    final hasReports = reportsAsync.valueOrNull?.isNotEmpty ?? false;
+    final firstReportId = (reportsAsync.valueOrNull?.isNotEmpty ?? false)
+        ? reportsAsync.value!.first.id
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -113,7 +118,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           const SizedBox(height: 8),
                         ],
                       )
-                    : _EmptyApsCard(),
+                    : _EmptyApsCard(
+                        hasReports: hasReports,
+                        onEditReport: firstReportId != null
+                            ? () => context.push('/reports/$firstReportId')
+                            : null,
+                      ),
                 loading: () => const SizedBox.shrink(),
                 error: (_, __) => const SizedBox.shrink(),
               ),
@@ -204,6 +214,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     const Divider(height: 1, indent: 56),
                     ListTile(
+                      leading: const Icon(Icons.mail_outline, color: AppColors.textSecondary),
+                      title: const Text('Contact Us'),
+                      subtitle: const Text('info@scancourse.co.za',
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () => context.push('/legal/contact'),
+                    ),
+                    ListTile(
                       leading: const Icon(Icons.info_outline, color: AppColors.textSecondary),
                       title: const Text('About Scancourse'),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
@@ -278,8 +296,20 @@ class _ProfileTile extends StatelessWidget {
 }
 
 class _EmptyApsCard extends StatelessWidget {
+  final bool hasReports;
+  final VoidCallback? onEditReport;
+  const _EmptyApsCard({this.hasReports = false, this.onEditReport});
+
   @override
   Widget build(BuildContext context) {
+    // If the user already uploaded something but we couldn't extract marks
+    // (still processing or OCR failed), nudge them to fix it rather than
+    // suggesting "upload your report card" — they already did.
+    final String title = hasReports ? 'Finish your APS' : 'No APS score yet';
+    final String body = hasReports
+        ? 'We couldn\'t read all your marks yet. Tap your report to check and edit the subjects.'
+        : 'Upload your report card or enter marks to calculate your APS';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -290,12 +320,30 @@ class _EmptyApsCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.document_scanner_outlined, size: 48, color: AppColors.textHint),
+          Icon(
+            hasReports
+                ? Icons.edit_document
+                : Icons.document_scanner_outlined,
+            size: 48,
+            color: AppColors.textHint,
+          ),
           const SizedBox(height: 12),
-          Text('No APS score yet', style: Theme.of(context).textTheme.titleMedium),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          Text('Upload your report card or enter marks to calculate your APS',
-              style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
+          Text(body,
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center),
+          if (hasReports && onEditReport != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onEditReport,
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Open My Report'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+              ),
+            ),
+          ],
         ],
       ),
     );

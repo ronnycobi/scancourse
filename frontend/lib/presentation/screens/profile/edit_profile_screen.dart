@@ -43,12 +43,22 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _loadStoredImage();
   }
 
+  // Strip any leading +27 / 27 / 0 so the field shows the local 9 digits.
+  String _localPhoneFrom(String? raw) {
+    if (raw == null) return '';
+    var s = raw.replaceAll(RegExp(r'[\s\-()]'), '');
+    if (s.startsWith('+27')) s = s.substring(3);
+    else if (s.startsWith('27') && s.length > 9) s = s.substring(2);
+    else if (s.startsWith('0')) s = s.substring(1);
+    return s;
+  }
+
   void _prefillFromUser() {
     final user = ref.read(authStateProvider).user;
     if (user == null) return;
     _firstNameCtrl.text = user.firstName;
     _lastNameCtrl.text = user.lastName;
-    _phoneCtrl.text = user.phoneNumber ?? '';
+    _phoneCtrl.text = _localPhoneFrom(user.phoneNumber);
     _dreamCareerCtrl.text = user.dreamCareer ?? '';
     _grade = user.grade;
     _province = user.province;
@@ -200,18 +210,44 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       final phone = _phoneCtrl.text.trim();
       final dreamCareer = _dreamCareerCtrl.text.trim();
 
-      if (firstName.isNotEmpty) data['first_name'] = firstName;
-      if (lastName.isNotEmpty) data['last_name'] = lastName;
-      if (phone.isNotEmpty) data['phone_number'] = phone;
-      if (_grade != null) data['grade'] = _grade;
-      if (_province != null) data['province'] = _province;
-      if (_preferredField != null) data['preferred_field'] = _preferredField;
-      if (_preferredStudyProvince != null) data['preferred_study_province'] = _preferredStudyProvince;
-      if (dreamCareer.isNotEmpty) data['dream_career'] = dreamCareer;
+      data['first_name'] = firstName;
+      data['last_name'] = lastName;
+      if (phone.isNotEmpty) {
+        final digits = phone.replaceAll(RegExp(r'\D'), '');
+        if (digits.length != 9) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Phone number must be 9 digits after +27.'),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+          setState(() => _isSaving = false);
+          return;
+        }
+        data['phone_number'] = '+27$digits';
+      } else {
+        // explicitly clear if user cleared the field
+        data['phone_number'] = '';
+      }
+      data['grade'] = _grade;
+      data['province'] = _province;
+      data['preferred_field'] = _preferredField;
+      data['preferred_study_province'] = _preferredStudyProvince;
+      data['dream_career'] = dreamCareer;
 
       await ref.read(authStateProvider.notifier).updateProfile(data);
 
-      if (mounted) context.pop();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile saved'),
+            backgroundColor: AppColors.eligible,
+          ),
+        );
+        context.pop();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -315,10 +351,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     const SizedBox(height: 16),
                     AppTextField(
                       label: 'Phone Number',
-                      hint: 'e.g. 0812345678',
+                      hint: '81 234 5678',
                       controller: _phoneCtrl,
                       keyboardType: TextInputType.phone,
-                      prefixIcon: Icons.phone_outlined,
+                      prefixText: '+27 ',
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return null;
+                        final digits = v.replaceAll(RegExp(r'\D'), '');
+                        if (digits.length != 9) {
+                          return 'Enter 9 digits after +27 (e.g. 812345678)';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                 ),

@@ -21,6 +21,8 @@ class LegalScreen extends StatelessWidget {
         return 'About Scancourse';
       case 'disclaimer':
         return 'Disclaimer';
+      case 'contact':
+        return 'Contact Us';
       default:
         return 'Legal';
     }
@@ -38,6 +40,8 @@ class LegalScreen extends StatelessWidget {
         return _about;
       case 'disclaimer':
         return _disclaimer;
+      case 'contact':
+        return _contact;
       default:
         return '';
     }
@@ -185,7 +189,8 @@ Scancourse is provided "as is". We can't guarantee that the information is compl
 These Terms are governed by South African law. Disputes will be resolved in South African courts.
 
 ## 11. Contact
-For questions about these Terms: legal@scancourse.co.za
+For questions about these Terms: info@scancourse.co.za
+Website: https://scancourse.co.za
 ''';
 
 const _privacy = '''
@@ -243,8 +248,9 @@ Scancourse is intended for students 13 and older. If we learn that we have colle
 If we make a material change, we'll notify you in-app before it takes effect.
 
 ## Contact
-- Privacy questions: privacy@scancourse.co.za
-- Information Officer: privacy-officer@scancourse.co.za
+- Privacy questions: info@scancourse.co.za
+- Information Officer: info@scancourse.co.za
+- Website: https://scancourse.co.za
 - Information Regulator of South Africa: inforegulator.org.za
 ''';
 
@@ -271,7 +277,7 @@ To keep Scancourse a useful, respectful space for everyone, please follow these 
 - Use Scancourse for any unlawful purpose under South African law.
 
 ## Reporting Violations
-If you notice another user breaking these rules, email abuse@scancourse.co.za. Include screenshots and the user's email/username if you have it.
+If you notice another user breaking these rules, email info@scancourse.co.za. Include screenshots and the user's email/username if you have it.
 
 ## Consequences
 Violations may result in your account being suspended or permanently closed. Serious violations (fraud, identity theft, computer-misuse offences) will be reported to law-enforcement.
@@ -302,7 +308,7 @@ We built Scancourse because applying for university in South Africa is stressful
 - We don't guarantee admission — only the institution can do that.
 
 ## Who Built This
-Scancourse is built by a small team in South Africa. If you find a bug or want to suggest something, email hello@scancourse.co.za.
+Scancourse is built by a small team in South Africa. If you find a bug or want to suggest something, email info@scancourse.co.za or visit https://scancourse.co.za.
 
 ## Open About Limitations
 - Bursary deadlines move every year. We update them, but always verify with the provider.
@@ -336,5 +342,31 @@ We link to external university and bursary application portals. We don't control
 To the maximum extent permitted by South African law, Scancourse and its operators are not liable for any loss, damage or missed opportunity arising from your use of the app.
 
 ## Reporting Errors
-Found a wrong deadline, missing bursary, or out-of-date course? Email corrections@scancourse.co.za and we'll fix it.
+Found a wrong deadline, missing bursary, or out-of-date course? Email info@scancourse.co.za and we'll fix it.
+''';
+
+const _contact = '''
+# Contact Us
+
+We'd love to hear from you — whether it's a bug report, a feature request, a question about your APS, or feedback on the app.
+
+## General Enquiries
+**Email:** info@scancourse.co.za
+**Website:** https://scancourse.co.za
+
+## What to Email Us About
+- Account or login issues
+- Wrong course or bursary information you've spotted
+- Bug reports (please include your phone model + what happened)
+- Feedback or feature requests
+- Privacy or data-protection questions (POPIA)
+- Reporting another user who's breaking the rules
+
+## Response Time
+We're a small team. We try to reply within 2 business days. For urgent admissions questions, please contact the relevant university directly — we can't process applications on their behalf.
+
+## Looking for Something Else?
+- **About the app:** see the *About Scancourse* page.
+- **How we handle your data:** see the *Privacy Policy*.
+- **What the app can and can't promise:** see the *Disclaimer*.
 ''';

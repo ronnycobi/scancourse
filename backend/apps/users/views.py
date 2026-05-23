@@ -178,7 +178,7 @@ class PasswordResetRequestView(APIView):
                     f'Or open the app and use this code:\n\nUID: {uid}\nToken: {token}\n\n'
                     f'If you did not request this, ignore this email.'
                 ),
-                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@scancourse.co.za'),
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'info@scancourse.co.za'),
                 recipient_list=[user.email],
                 fail_silently=True,
             )

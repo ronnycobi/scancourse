@@ -7,6 +7,7 @@ class AppTextField extends StatelessWidget {
   final bool obscureText;
   final TextInputType? keyboardType;
   final IconData? prefixIcon;
+  final String? prefixText;
   final Widget? suffixIcon;
   final String? Function(String?)? validator;
   final int maxLines;
@@ -20,6 +21,7 @@ class AppTextField extends StatelessWidget {
     this.obscureText = false,
     this.keyboardType,
     this.prefixIcon,
+    this.prefixText,
     this.suffixIcon,
     this.validator,
     this.maxLines = 1,
@@ -43,6 +45,7 @@ class AppTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,
+            prefixText: prefixText,
             suffixIcon: suffixIcon,
           ),
         ),

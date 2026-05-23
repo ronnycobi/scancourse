@@ -25,8 +25,16 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(latestApsProvider);
+            ref.invalidate(courseRecommendationsProvider);
+            ref.invalidate(bursaryRecommendationsProvider);
+            ref.invalidate(bursaryListProvider('status=open'));
+          },
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
             SliverAppBar(
               floating: true,
               backgroundColor: Colors.white,
@@ -206,7 +214,8 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

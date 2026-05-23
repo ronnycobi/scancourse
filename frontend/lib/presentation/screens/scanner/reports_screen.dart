@@ -248,7 +248,9 @@ class _ReportCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final aps = report.apsResult?.totalAps ?? 0;
     final nSubjects = (report.subjects?.length ?? 0);
-    return Container(
+    return GestureDetector(
+      onTap: () => context.push('/reports/${report.id}'),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -322,6 +324,7 @@ class _ReportCard extends ConsumerWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

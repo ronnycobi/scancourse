@@ -73,7 +73,7 @@ docker-compose exec backend python scripts/seed_data.py
 - Swagger UI: http://localhost:8000/api/docs/
 - Django Admin: http://localhost:8000/admin/
 
-Default admin: `admin@scancourse.co.za` / `changeme123`
+Default admin: `info@scancourse.co.za` / `changeme123`
 
 ### 5. Run Flutter app
 ```bash

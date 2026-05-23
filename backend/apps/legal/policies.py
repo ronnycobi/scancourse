@@ -70,7 +70,7 @@ Some of our service providers (Google, AWS) may process data outside South Afric
 - **Data portability** — export your data in a machine-readable format
 - **Lodge a complaint** — with the Information Regulator (https://inforegulator.org.za)
 
-To exercise any right, email **privacy@scancourse.co.za** or use the in-app settings.
+To exercise any right, email **info@scancourse.co.za** or use the in-app settings.
 
 ## 8. Security
 
@@ -90,8 +90,8 @@ We will notify you of material changes via email or in-app notification at least
 
 ## 11. Contact us
 
-**Information Officer:** info-officer@scancourse.co.za
-**Privacy queries:** privacy@scancourse.co.za
+**Information Officer:** info@scancourse.co.za
+**Privacy queries:** info@scancourse.co.za
 **Postal address:** [Registered office address]
 """,
 }
@@ -168,7 +168,8 @@ We may update these terms; we'll notify you 30 days in advance for material chan
 
 ## 11. Contact
 
-**legal@scancourse.co.za**
+**info@scancourse.co.za**
+Website: https://scancourse.co.za
 """,
 }
 
@@ -199,6 +200,6 @@ Most browsers also let you block cookies entirely — though this may break func
 
 ## Contact
 
-Questions? **privacy@scancourse.co.za**
+Questions? **info@scancourse.co.za**
 """,
 }

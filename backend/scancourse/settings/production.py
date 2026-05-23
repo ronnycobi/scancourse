@@ -51,7 +51,7 @@ if env('EMAIL_HOST', default=''):
     EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@scancourse.co.za')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='info@scancourse.co.za')
 
 # Sentry — opt-in only.
 SENTRY_DSN = env('SENTRY_DSN', default='')

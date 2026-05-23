@@ -72,9 +72,13 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
       });
     }
     final apsAsync = ref.watch(latestApsProvider);
+    final reportsAsync = ref.watch(reportListProvider);
     // Show personalised matcher only when the user has an APS result;
     // otherwise fall back to a plain browse-and-search experience.
     final hasAps = apsAsync.valueOrNull != null;
+    // Hide the "scan your marks" banner once the user has uploaded ANY report,
+    // even if the OCR is still pending and APS is 0.
+    final hasReports = (reportsAsync.valueOrNull?.isNotEmpty) ?? false;
     final matchAsync =
         hasAps ? ref.watch(courseMatchProvider(paramStr)) : null;
     final listAsync =
@@ -201,8 +205,10 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
             ),
           ),
 
-          // Browse-mode banner: invites no-APS users to scan for personalised matches.
-          if (!hasAps)
+          // Browse-mode banner: invites users with no APS *and* no reports
+          // to scan for personalised matches. Hide as soon as they've uploaded
+          // anything — pestering them with "Scan your marks" looks broken.
+          if (!hasAps && !hasReports)
             Container(
               margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               padding: const EdgeInsets.all(12),
@@ -244,6 +250,13 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _refreshAll(WidgetRef ref, String? paramStr) async {
+    ref.invalidate(latestApsProvider);
+    ref.invalidate(reportListProvider);
+    ref.invalidate(courseListProvider(paramStr));
+    ref.invalidate(courseMatchProvider(paramStr));
   }
 
   Widget _buildBrowseBody(
@@ -309,15 +322,19 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
         return Column(
           children: [
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 8),
-                itemCount: pageCourses.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (_, i) => _BrowseCourseCard(
-                  course: pageCourses[i],
-                  onTap: () =>
-                      context.push('/courses/${pageCourses[i].id}'),
+              child: RefreshIndicator(
+                onRefresh: () => _refreshAll(ref, paramStr),
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: pageCourses.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => _BrowseCourseCard(
+                    course: pageCourses[i],
+                    onTap: () =>
+                        context.push('/courses/${pageCourses[i].id}'),
+                  ),
                 ),
               ),
             ),
@@ -403,16 +420,20 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
                           : Column(
                               children: [
                                 Expanded(
-                                  child: ListView.separated(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 8),
-                                    itemCount: pageResults.length,
-                                    separatorBuilder: (_, __) =>
-                                        const SizedBox(height: 10),
-                                    itemBuilder: (context, i) => _OfferingCard(
-                                      offering: pageResults[i],
-                                      onTap: () => context.push(
-                                          '/courses/${pageResults[i].courseId}'),
+                                  child: RefreshIndicator(
+                                    onRefresh: () => _refreshAll(ref, paramStr),
+                                    child: ListView.separated(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 8),
+                                      physics: const AlwaysScrollableScrollPhysics(),
+                                      itemCount: pageResults.length,
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(height: 10),
+                                      itemBuilder: (context, i) => _OfferingCard(
+                                        offering: pageResults[i],
+                                        onTap: () => context.push(
+                                            '/courses/${pageResults[i].courseId}'),
+                                      ),
                                     ),
                                   ),
                                 ),
