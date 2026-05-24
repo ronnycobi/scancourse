@@ -1,0 +1,475 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scancourse — Scan your results. Plan your future.</title>
+  <meta name="description" content="Scancourse helps Grade 11 and 12 learners in South Africa calculate their APS, find matching university courses, and discover bursaries — all in one app." />
+  <meta name="theme-color" content="#1E40AF" />
+
+  <!-- Open Graph / social cards -->
+  <meta property="og:title" content="Scancourse — Scan your results. Plan your future." />
+  <meta property="og:description" content="Calculate your APS, find courses you qualify for, discover bursaries. Built for South African learners." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://scancourse.co.za" />
+  <meta property="og:image" content="https://scancourse.co.za{% static 'landing/scancourse-logo.png' %}" />
+
+  <link rel="icon" type="image/png" href="{% static 'landing/scancourse-logo.png' %}" />
+  <link rel="apple-touch-icon" href="{% static 'landing/scancourse-logo.png' %}" />
+
+  <style>
+    :root {
+      --primary: #1E40AF;
+      --primary-dark: #1E3A8A;
+      --primary-light: #DBEAFE;
+      --accent: #F59E0B;
+      --text: #0F172A;
+      --text-secondary: #475569;
+      --text-hint: #94A3B8;
+      --bg: #FFFFFF;
+      --surface: #F8FAFC;
+      --border: #E2E8F0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    img { max-width: 100%; display: block; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+    /* Nav */
+    header.nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: saturate(180%) blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 0;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; font-size: 18px; color: var(--text);
+    }
+    .brand img { width: 32px; height: 32px; border-radius: 8px; }
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links a { color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+    .nav-links a:hover { color: var(--primary); text-decoration: none; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--primary); color: #fff;
+      padding: 10px 18px; border-radius: 999px;
+      font-size: 14px; font-weight: 600; transition: background .15s;
+      border: 0; cursor: pointer;
+    }
+    .btn:hover { background: var(--primary-dark); text-decoration: none; color: #fff; }
+    .btn-outline {
+      background: transparent; color: var(--primary);
+      border: 2px solid var(--primary);
+    }
+    .btn-outline:hover { background: var(--primary-light); }
+    @media (max-width: 640px) {
+      .nav-links a:not(.btn) { display: none; }
+    }
+
+    /* Hero */
+    .hero {
+      padding: 80px 0 60px;
+      background: linear-gradient(180deg, #F0F7FF 0%, #FFFFFF 100%);
+    }
+    .hero-inner {
+      display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px;
+      align-items: center;
+    }
+    .hero h1 {
+      font-size: 48px; line-height: 1.1; font-weight: 800;
+      letter-spacing: -0.02em; color: var(--text);
+    }
+    .hero h1 span { color: var(--primary); }
+    .hero p.lead {
+      font-size: 18px; color: var(--text-secondary);
+      margin: 20px 0 32px; max-width: 520px;
+    }
+    .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+    .hero-cta .btn { padding: 14px 24px; font-size: 15px; }
+    .hero-meta {
+      display: flex; gap: 24px; margin-top: 28px;
+      color: var(--text-secondary); font-size: 13px;
+      flex-wrap: wrap;
+    }
+    .hero-meta strong { color: var(--text); font-weight: 700; }
+    .hero-art {
+      display: flex; justify-content: center; align-items: center;
+    }
+    .phone-mock {
+      width: 280px; max-width: 100%;
+      aspect-ratio: 9 / 19.5;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      border-radius: 36px;
+      padding: 16px;
+      box-shadow: 0 30px 60px -20px rgba(30,64,175,0.4), 0 18px 36px -18px rgba(0,0,0,0.15);
+      position: relative;
+    }
+    .phone-mock::before {
+      content: ''; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      width: 80px; height: 22px; background: #0F172A; border-radius: 12px;
+    }
+    .phone-screen {
+      width: 100%; height: 100%; background: #fff; border-radius: 28px;
+      padding: 36px 16px 16px;
+      display: flex; flex-direction: column;
+      gap: 12px;
+    }
+    .phone-screen .greeting {
+      font-size: 13px; color: var(--text-secondary); margin-bottom: 0;
+    }
+    .phone-screen .title { font-size: 18px; font-weight: 800; color: var(--text); }
+    .phone-screen .card-mini {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #fff; padding: 14px; border-radius: 14px;
+    }
+    .phone-screen .card-mini .label { font-size: 11px; opacity: .85; }
+    .phone-screen .card-mini .big { font-size: 32px; font-weight: 900; line-height: 1; margin-top: 4px; }
+    .phone-screen .card-mini .sub { font-size: 11px; opacity: .85; margin-top: 6px; }
+    .phone-screen .pill {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px; font-size: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .phone-screen .pill .badge {
+      background: #DCFCE7; color: #166534; font-size: 10px; font-weight: 700;
+      padding: 2px 8px; border-radius: 8px;
+    }
+
+    @media (max-width: 860px) {
+      .hero-inner { grid-template-columns: 1fr; text-align: center; }
+      .hero h1 { font-size: 36px; }
+      .hero p.lead { margin-left: auto; margin-right: auto; }
+      .hero-cta, .hero-meta { justify-content: center; }
+      .phone-mock { width: 240px; }
+    }
+
+    /* Features */
+    section.features {
+      padding: 80px 0;
+    }
+    .section-eyebrow {
+      color: var(--primary); font-size: 13px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      text-align: center; margin-bottom: 8px;
+    }
+    .section-title {
+      text-align: center; font-size: 32px; font-weight: 800;
+      letter-spacing: -0.01em; margin-bottom: 12px;
+    }
+    .section-sub {
+      text-align: center; color: var(--text-secondary);
+      max-width: 600px; margin: 0 auto 48px; font-size: 16px;
+    }
+    .feature-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    }
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 28px;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .feature:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px -10px rgba(15,23,42,0.12);
+    }
+    .feature .icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      background: var(--primary-light); color: var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 16px;
+    }
+    .feature h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .feature p { color: var(--text-secondary); font-size: 14px; }
+
+    @media (max-width: 800px) {
+      .feature-grid { grid-template-columns: 1fr; }
+      .section-title { font-size: 26px; }
+    }
+
+    /* How it works */
+    section.how {
+      padding: 80px 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .steps {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;
+      margin-top: 32px;
+    }
+    .step { text-align: center; }
+    .step-num {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--primary); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 16px; margin-bottom: 12px;
+    }
+    .step h4 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .step p { color: var(--text-secondary); font-size: 13px; }
+    @media (max-width: 800px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+
+    /* CTA */
+    section.cta {
+      padding: 80px 0;
+      text-align: center;
+    }
+    .cta-card {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #fff; padding: 56px 32px; border-radius: 24px;
+      box-shadow: 0 20px 40px -20px rgba(30,64,175,0.4);
+    }
+    .cta-card h2 {
+      font-size: 32px; font-weight: 800; margin-bottom: 12px;
+      letter-spacing: -0.01em;
+    }
+    .cta-card p { font-size: 16px; opacity: .9; margin-bottom: 28px; }
+    .cta-card .btn {
+      background: #fff; color: var(--primary);
+    }
+    .cta-card .btn:hover { background: var(--primary-light); }
+
+    /* Footer */
+    footer {
+      padding: 48px 0 32px;
+      border-top: 1px solid var(--border);
+    }
+    .footer-inner {
+      display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 32px;
+    }
+    .footer-brand p {
+      color: var(--text-secondary); font-size: 13px; margin-top: 10px;
+      max-width: 280px;
+    }
+    .footer-col h5 {
+      font-size: 13px; font-weight: 700; color: var(--text);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px;
+    }
+    .footer-col a {
+      display: block; color: var(--text-secondary); font-size: 14px;
+      padding: 4px 0;
+    }
+    .footer-col a:hover { color: var(--primary); }
+    .footer-bottom {
+      margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);
+      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      color: var(--text-hint); font-size: 13px;
+    }
+    @media (max-width: 800px) { .footer-inner { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 500px) { .footer-inner { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+  <!-- ============ NAV ============ -->
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="/">
+        <img src="{% static 'landing/scancourse-logo.png' %}" alt="Scancourse logo" />
+        Scancourse
+      </a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#contact">Contact</a>
+        <a href="#download" class="btn">Get the app</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="container hero-inner">
+      <div>
+        <h1>Scan your results.<br /><span>Plan your future.</span></h1>
+        <p class="lead">
+          Scancourse helps Grade 11 and 12 learners across South Africa calculate their APS, find universities they qualify for, and discover bursaries — all in one free app.
+        </p>
+        <div class="hero-cta">
+          <a href="#download" class="btn">⬇️&nbsp; Download for Android</a>
+          <a href="#how" class="btn btn-outline">See how it works</a>
+        </div>
+        <div class="hero-meta">
+          <div><strong>1,600+</strong> courses</div>
+          <div><strong>25</strong> universities</div>
+          <div><strong>110+</strong> bursaries</div>
+        </div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="phone-mock">
+          <div class="phone-screen">
+            <div class="greeting">Hi, Thandi 👋</div>
+            <div class="title">Your APS</div>
+            <div class="card-mini">
+              <div class="label">Your Best APS</div>
+              <div class="big">34<span style="font-size:14px;opacity:.7;"> /42</span></div>
+              <div class="sub">Across all your reports</div>
+            </div>
+            <div class="pill">
+              <span>BSc Computer Science</span>
+              <span class="badge">Qualify</span>
+            </div>
+            <div class="pill">
+              <span>BEd Foundation Phase</span>
+              <span class="badge">Qualify</span>
+            </div>
+            <div class="pill">
+              <span>BCom Accounting</span>
+              <span class="badge" style="background:#FEF3C7;color:#92400E;">+1 APS</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES ============ -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-eyebrow">Everything in one app</div>
+      <h2 class="section-title">Built for South African learners</h2>
+      <p class="section-sub">Stop hopping between university websites, bursary PDFs and APS calculators. Scancourse pulls it all into one place.</p>
+
+      <div class="feature-grid">
+        <div class="feature">
+          <div class="icon">📄</div>
+          <h3>Scan your report card</h3>
+          <p>Take a photo or upload a PDF — we'll read your marks and calculate your APS automatically. Add multiple reports (Grade 11, NSC, supplementary) and we keep your best mark per subject.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">🎓</div>
+          <h3>Find courses you qualify for</h3>
+          <p>1,600+ programmes across all 25 SA public universities, filtered by your APS, subjects and preferred field. See exactly which subjects you're missing or how many APS points you're short.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">💰</div>
+          <h3>Discover bursaries</h3>
+          <p>110+ NSFAS, government, corporate and foundation bursaries — matched to your marks, province and dream career. Never miss a deadline again.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">🏠</div>
+          <h3>Accommodation</h3>
+          <p>NSFAS-accredited residences near every university, with prices and capacity. Plan where you'll live before you accept an offer.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">📅</div>
+          <h3>Track your applications</h3>
+          <p>Save courses and bursaries you're applying to. We remind you of deadlines so nothing slips through the cracks.</p>
+        </div>
+        <div class="feature">
+          <div class="icon">✨</div>
+          <h3>AI assistant</h3>
+          <p>Stuck writing a motivation letter? Need to understand a university's requirements? Our AI helper is built specifically for SA learners.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="how" id="how">
+    <div class="container">
+      <div class="section-eyebrow">In four steps</div>
+      <h2 class="section-title">From report card to university list</h2>
+      <p class="section-sub">No accounts to chase, no PDFs to download. Just open the app.</p>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h4>Download</h4>
+          <p>Install Scancourse on your Android phone (free).</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h4>Scan</h4>
+          <p>Snap your latest report card or type your marks in.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h4>Match</h4>
+          <p>See courses you qualify for and bursaries you should apply to.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <h4>Apply</h4>
+          <p>Track every application and deadline in one place.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA / DOWNLOAD ============ -->
+  <section class="cta" id="download">
+    <div class="container">
+      <div class="cta-card">
+        <h2>Ready to plan your future?</h2>
+        <p>Scancourse is free for all SA learners. Android first, iOS coming soon.</p>
+        <a href="mailto:info@scancourse.co.za?subject=Send%20me%20the%20Scancourse%20APK" class="btn">
+          ⬇️&nbsp; Request the APK
+        </a>
+        <p style="margin-top:20px;font-size:13px;opacity:.85;">
+          We'll email it to you while we wait for Google Play approval.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer id="contact">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <div class="brand">
+            <img src="{% static 'landing/scancourse-logo.png' %}" alt="" />
+            Scancourse
+          </div>
+          <p>Scan your results. Plan your future. Built in South Africa for South African learners.</p>
+        </div>
+
+        <div class="footer-col">
+          <h5>Product</h5>
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#download">Download</a>
+        </div>
+
+        <div class="footer-col">
+          <h5>Contact</h5>
+          <a href="mailto:info@scancourse.co.za">info@scancourse.co.za</a>
+          <a href="https://scancourse.co.za">scancourse.co.za</a>
+        </div>
+
+        <div class="footer-col">
+          <h5>Legal</h5>
+          <a href="/api/v1/legal/privacy/">Privacy Policy</a>
+          <a href="/api/v1/legal/terms/">Terms of Service</a>
+          <a href="/api/v1/legal/cookies/">Cookie Policy</a>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span>© <span id="year"></span> Scancourse. All rights reserved.</span>
+        <span>Made with ❤️ in South Africa</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

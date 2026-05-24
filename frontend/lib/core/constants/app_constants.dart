@@ -5,7 +5,7 @@ class AppConstants {
   // API
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.18.111:8000/api/v1',
+    defaultValue: 'https://scancourse-sf8zg.ondigitalocean.app/api/v1',
   );
 
   // Local storage keys
