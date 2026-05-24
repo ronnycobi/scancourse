@@ -40,6 +40,7 @@ twilio==9.0.4
 meilisearch==0.31.4
 cryptography==42.0.5
 python-slugify==8.0.4
+markdown==3.6
 
 # Google Cloud Vision (optional — used when GOOGLE_CLOUD_API_KEY is set).
 # REST path uses `requests` only; SDK path uses this package.

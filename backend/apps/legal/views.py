@@ -3,15 +3,62 @@ POPIA-compliant data rights endpoints + public legal pages.
 """
 import json
 import logging
+import markdown as md
 from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse, HttpResponse
+from django.shortcuts import render
 from django.utils import timezone
 from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import ConsentRecord, DataExportRequest, AccountDeletionRequest
 from .policies import PRIVACY_POLICY, TERMS_OF_SERVICE, COOKIE_POLICY
+
+
+# ════════════════════════════════════════════════════════════════
+# Public legal *pages* (HTML, for humans on the website)
+# These render the same markdown content as the API endpoints, but
+# styled like the landing page. Lives at /legal/privacy/ etc.
+# ════════════════════════════════════════════════════════════════
+
+_PAGE_TITLES = {
+    'privacy': 'Privacy Policy',
+    'terms': 'Terms of Service',
+    'cookies': 'Cookie Policy',
+}
+
+_PAGE_DOCS = {
+    'privacy': PRIVACY_POLICY,
+    'terms': TERMS_OF_SERVICE,
+    'cookies': COOKIE_POLICY,
+}
+
+
+def _legal_page(request, slug):
+    doc = _PAGE_DOCS[slug]
+    html = md.markdown(
+        doc['content'],
+        extensions=['extra', 'tables', 'sane_lists', 'nl2br'],
+    )
+    return render(request, 'legal_page.html', {
+        'title': _PAGE_TITLES[slug],
+        'version': doc['version'],
+        'effective_date': doc['effective_date'],
+        'html_content': html,
+    })
+
+
+def privacy_page(request):
+    return _legal_page(request, 'privacy')
+
+
+def terms_page(request):
+    return _legal_page(request, 'terms')
+
+
+def cookies_page(request):
+    return _legal_page(request, 'cookies')
 
 logger = logging.getLogger(__name__)
 User = get_user_model()

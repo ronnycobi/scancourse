@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from apps.legal import views as legal_views
 
 api_v1 = [
     path('auth/', include('apps.users.urls')),
@@ -27,6 +28,11 @@ api_v1 = [
 urlpatterns = [
     # Public landing page — what humans see at https://scancourse.co.za
     path('', TemplateView.as_view(template_name='landing.html'), name='landing'),
+    # Public HTML legal pages (humans). The /api/v1/legal/* versions still
+    # return JSON for the mobile app.
+    path('legal/privacy/', legal_views.privacy_page, name='legal-privacy-page'),
+    path('legal/terms/', legal_views.terms_page, name='legal-terms-page'),
+    path('legal/cookies/', legal_views.cookies_page, name='legal-cookies-page'),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_v1)),
     path('whatsapp/', include('apps.whatsapp.urls')),
