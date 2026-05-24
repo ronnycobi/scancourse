@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../providers/course_provider.dart';
+import '../../../providers/aps_provider.dart';
 import '../../widgets/common/bookmark_button.dart';
 import '../../widgets/common/remote_logo.dart';
 
@@ -244,6 +245,16 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+              // Gemini-powered: "Do I qualify and why?"
+              OutlinedButton.icon(
+                onPressed: () => _showExplainSheet(context, ref, widget.id),
+                icon: const Icon(Icons.psychology_alt_outlined),
+                label: const Text('Do I qualify? Ask AI'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 44),
+                ),
+              ),
+              const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () => context.push('/ai'),
                 icon: const Icon(Icons.auto_awesome),
@@ -278,6 +289,209 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: Text(value, style: Theme.of(context).textTheme.titleMedium)),
         ],
+      ),
+    );
+  }
+}
+
+/// Shows a bottom sheet with the Gemini-generated "do I qualify and why" answer.
+void _showExplainSheet(BuildContext context, WidgetRef ref, int courseId) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _ExplainGapSheet(courseId: courseId),
+  );
+}
+
+class _ExplainGapSheet extends ConsumerStatefulWidget {
+  final int courseId;
+  const _ExplainGapSheet({required this.courseId});
+  @override
+  ConsumerState<_ExplainGapSheet> createState() => _ExplainGapSheetState();
+}
+
+class _ExplainGapSheetState extends ConsumerState<_ExplainGapSheet> {
+  late Future<Map<String, dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = ref.read(ocrRepositoryProvider).explainCourseGap(widget.courseId);
+  }
+
+  Color _verdictColor(String v) {
+    switch (v) {
+      case 'qualify':
+        return AppColors.eligible;
+      case 'subject_gap':
+        return AppColors.subjectGap;
+      case 'aps_gap':
+        return AppColors.apsGap;
+      case 'both':
+        return AppColors.error;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  String _verdictLabel(String v) {
+    switch (v) {
+      case 'qualify':
+        return 'You qualify ✅';
+      case 'subject_gap':
+        return 'Subject gap';
+      case 'aps_gap':
+        return 'APS short';
+      case 'both':
+        return 'Subject + APS gap';
+      default:
+        return 'Checking…';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: _future,
+          builder: (ctx, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return const SizedBox(
+                height: 220,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.psychology_alt_outlined,
+                          color: AppColors.primary, size: 32),
+                      SizedBox(height: 12),
+                      CircularProgressIndicator(strokeWidth: 3),
+                      SizedBox(height: 16),
+                      Text('Checking your marks against this course…'),
+                    ],
+                  ),
+                ),
+              );
+            }
+            if (snap.hasError) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline,
+                        color: AppColors.error, size: 40),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Add your marks first so we can compare them to this course.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        context.push('/scanner');
+                      },
+                      child: const Text('Scan your report'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            final data = snap.data!;
+            final verdict = (data['verdict'] as String?) ?? 'unknown';
+            final explanation = (data['explanation'] as String?) ?? '';
+            final actions =
+                ((data['action_items'] as List?) ?? const []).cast<String>();
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.psychology_alt_outlined,
+                        color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    const Text('AI verdict',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _verdictColor(verdict).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        _verdictLabel(verdict),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _verdictColor(verdict)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  explanation,
+                  style: const TextStyle(
+                      fontSize: 14, height: 1.5, color: AppColors.textPrimary),
+                ),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text('What to do',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary)),
+                  const SizedBox(height: 8),
+                  ...actions.map(
+                    (a) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.check_circle_outline,
+                              size: 18, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(a,
+                                style: const TextStyle(
+                                    fontSize: 13, height: 1.45)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Text(
+                  'AI suggestions can be wrong — always verify with the university.',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textHint,
+                      fontStyle: FontStyle.italic),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

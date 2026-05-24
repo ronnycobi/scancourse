@@ -12,6 +12,7 @@ import '../../presentation/screens/scanner/manual_entry_screen.dart';
 import '../../presentation/screens/scanner/reports_screen.dart';
 import '../../presentation/screens/scanner/results_screen.dart';
 import '../../presentation/screens/scanner/report_edit_screen.dart';
+import '../../presentation/screens/scanner/improvement_plan_screen.dart';
 import '../../presentation/screens/courses/courses_screen.dart';
 import '../../presentation/screens/courses/course_detail_screen.dart';
 import '../../presentation/screens/bursaries/bursaries_screen.dart';
@@ -95,6 +96,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => ResultsScreen(extra: state.extra as Map<String, dynamic>?),
       ),
       GoRoute(path: '/edit-profile', builder: (_, __) => const EditProfileScreen()),
+      GoRoute(path: '/improvement-plan', builder: (_, __) => const ImprovementPlanScreen()),
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/saved', builder: (_, __) => const SavedItemsScreen()),
       GoRoute(path: '/applications', builder: (_, __) => const ApplicationsScreen()),

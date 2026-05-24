@@ -207,6 +207,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     // Language picker disabled — English-only build for now.
                     ListTile(
+                      leading: const Icon(Icons.psychology_alt_outlined,
+                          color: AppColors.primary),
+                      title: const Text('My Improvement Path'),
+                      subtitle: const Text(
+                          'AI plan to close your APS gaps',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () => context.push('/improvement-plan'),
+                    ),
+                    ListTile(
                       leading: const Icon(Icons.auto_awesome, color: AppColors.primary),
                       title: const Text('AI Motivation Letter'),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),

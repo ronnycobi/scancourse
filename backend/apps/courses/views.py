@@ -1,13 +1,20 @@
+import json as _json
+import logging
+import re as _re
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from django.conf import settings
 from .models import Course, CourseOffering, CourseInteraction
 from .serializers import CourseListSerializer, CourseDetailSerializer
 from .matcher import match_courses, match_summary
 from .recommender import recommend_courses
 from apps.ocr.models import APSResult
+from apps.ocr import gemini_vision
+
+logger = logging.getLogger(__name__)
 
 
 class CourseListView(generics.ListAPIView):
@@ -187,3 +194,110 @@ class CourseInteractionView(APIView):
             user=request.user, course_id=pk, kind=kind,
         )
         return Response({'ok': True}, status=201)
+
+
+class ExplainGapView(APIView):
+    """
+    GET /api/v1/courses/<id>/explain-gap/
+
+    Plain-English "why didn't I qualify" paragraph powered by Gemini,
+    grounded in the user's actual marks and the course's actual requirements.
+    """
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, pk):
+        try:
+            course = Course.objects.prefetch_related('offerings').get(pk=pk, is_active=True)
+        except Course.DoesNotExist:
+            return Response({'detail': 'Course not found.'}, status=404)
+
+        from apps.ocr.aggregator import best_aps_for_user
+        merged = best_aps_for_user(request.user)
+        if merged['total_aps'] == 0:
+            return Response(
+                {'detail': 'Add your marks first so we can compare.'},
+                status=400,
+            )
+
+        # Pick the offering with the lowest APS requirement — that's the
+        # one most likely the user would target.
+        offerings = sorted(
+            course.offerings.all(),
+            key=lambda o: o.min_aps or 9999,
+        )
+        if not offerings:
+            return Response(
+                {'detail': 'No offerings recorded for this course.'},
+                status=400,
+            )
+        offering = offerings[0]
+
+        payload = {
+            'course': course.name,
+            'institution': offering.institution.name if offering.institution_id else None,
+            'min_aps_required': offering.min_aps,
+            'subject_requirements': offering.subject_requirements or [],
+            'user_aps': merged['total_aps'],
+            'user_subjects': [
+                {'name': s.get('name'), 'mark': s.get('mark'), 'pts': s.get('aps_points')}
+                for s in merged['subjects']
+            ],
+        }
+        result = _gemini_explain_gap(payload)
+        return Response(result)
+
+
+def _gemini_explain_gap(payload: dict) -> dict:
+    """Returns {explanation: str, action_items: [str], verdict: str}."""
+    fallback = {
+        'verdict': 'unknown',
+        'explanation': 'AI coach is offline right now — please try again later.',
+        'action_items': [],
+    }
+    if not gemini_vision.is_available():
+        return fallback
+
+    import google.generativeai as genai
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+    prompt = f"""You are a South African study coach helping a Grade 11/12 learner understand whether they qualify for a university course, in plain English.
+
+The data:
+{_json.dumps(payload, ensure_ascii=False, indent=2)}
+
+Return ONLY this JSON:
+
+{{
+  "verdict": "<one of: qualify, subject_gap, aps_gap, both>",
+  "explanation": "<2-3 sentences in friendly, plain English. Use 'you' / 'your'. Mention specific marks and subjects from their data. No jargon.>",
+  "action_items": [
+    "<short, specific action, max 100 chars — e.g. 'Push Maths from 55% to 65% for +1 APS'>",
+    "<another, max 3 total>"
+  ]
+}}
+
+Rules:
+- If they qualify, the explanation should celebrate that and mention how much APS surplus they have.
+- If they're short on APS, name the exact gap (e.g. "you need 30 APS, you have 28 — short by 2").
+- If they're short on a required subject, name which one and the required level.
+- Never invent marks they don't have.
+- Output ONLY JSON, no markdown fences.
+"""
+    try:
+        model = genai.GenerativeModel(
+            settings.GEMINI_MODEL,
+            generation_config={'response_mime_type': 'application/json'},
+        )
+        resp = model.generate_content(prompt)
+        raw = _re.sub(r'^```(?:json)?\s*|\s*```$', '',
+                      (resp.text or '').strip(), flags=_re.IGNORECASE)
+        data = _json.loads(raw)
+        return {
+            'verdict': str(data.get('verdict') or 'unknown')[:30],
+            'explanation': str(data.get('explanation') or '')[:600],
+            'action_items': [
+                str(a)[:120] for a in (data.get('action_items') or [])[:3]
+            ],
+        }
+    except Exception as e:
+        logger.warning('Gap explainer failed: %s', e)
+        return fallback

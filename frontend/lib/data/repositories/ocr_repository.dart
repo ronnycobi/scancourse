@@ -42,4 +42,27 @@ class OcrRepository {
     if (data['total_aps'] == 0) return null;
     return ApsResult.fromJson(data);
   }
+
+  /// AI quality check on an image BEFORE the heavy upload. Returns the
+  /// raw Gemini verdict including a `should_upload` flag.
+  Future<Map<String, dynamic>> precheckImage(File file) async {
+    final ext = file.path.split('.').last.toLowerCase();
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(file.path, filename: 'check.$ext'),
+    });
+    final response = await _api.upload('/ocr/precheck/', formData);
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  /// AI improvement plan based on current marks + saved courses.
+  Future<Map<String, dynamic>> getImprovementPlan() async {
+    final response = await _api.get('/ocr/improvement-plan/');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  /// Gemini-powered "why didn't I qualify" explainer for a course.
+  Future<Map<String, dynamic>> explainCourseGap(int courseId) async {
+    final response = await _api.get('/courses/$courseId/explain-gap/');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
 }

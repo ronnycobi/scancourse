@@ -43,6 +43,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     }
   }
 
+  bool _prechecking = false;
+
   Future<void> _uploadFile(File file) async {
     // Client-side guard so users get a clear message before the round-trip.
     final ext = file.path.split('.').last.toLowerCase();
@@ -59,10 +61,101 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       }
       return;
     }
+
+    // AI precheck — only for images. PDFs go straight through.
+    if (ext != 'pdf') {
+      setState(() => _prechecking = true);
+      Map<String, dynamic>? verdict;
+      try {
+        verdict = await ref.read(ocrRepositoryProvider).precheckImage(file);
+      } catch (_) {
+        // Don't block on precheck failures.
+      } finally {
+        if (mounted) setState(() => _prechecking = false);
+      }
+      if (verdict != null && verdict['should_upload'] == false) {
+        final proceed = await _showPrecheckDialog(verdict);
+        if (proceed != true) return;
+      }
+    }
+
     await ref.read(scannerProvider.notifier).uploadFile(file);
     if (mounted) {
       context.push('/results', extra: {'from': 'scanner'});
     }
+  }
+
+  Future<bool?> _showPrecheckDialog(Map<String, dynamic> verdict) {
+    final issues = (verdict['issues'] as List?)?.cast<String>() ?? const [];
+    final suggestion = (verdict['suggestion'] as String?) ?? '';
+    final isReport = verdict['is_report'] as bool? ?? true;
+    final readable = verdict['marks_readable'] as bool? ?? true;
+
+    final String title;
+    final IconData icon;
+    final Color color;
+    if (!isReport) {
+      title = 'This doesn\'t look like a report card';
+      icon = Icons.help_outline;
+      color = AppColors.error;
+    } else if (!readable) {
+      title = 'Marks aren\'t clear';
+      icon = Icons.visibility_off_outlined;
+      color = AppColors.accent;
+    } else {
+      title = 'Image quality could be better';
+      icon = Icons.warning_amber_rounded;
+      color = AppColors.accent;
+    }
+
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(icon, color: color, size: 36),
+        title: Text(title, textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (suggestion.isNotEmpty)
+              Text(suggestion,
+                  style: const TextStyle(
+                      fontSize: 14, color: AppColors.textSecondary)),
+            if (issues.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (final i in issues.take(3))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('• ',
+                          style: TextStyle(color: AppColors.textHint)),
+                      Expanded(
+                        child: Text(i,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary)),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Retake'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Upload anyway',
+                style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -77,7 +170,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: scannerState.isUploading || scannerState.isProcessing
+          child: _prechecking
+              ? const _PrecheckingView()
+              : scannerState.isUploading || scannerState.isProcessing
               ? _ProcessingView(isUploading: scannerState.isUploading)
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,6 +292,32 @@ class _UploadOption extends StatelessWidget {
             const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textHint),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PrecheckingView extends StatelessWidget {
+  const _PrecheckingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.auto_awesome,
+              color: AppColors.primary, size: 36),
+          const SizedBox(height: 12),
+          const CircularProgressIndicator(strokeWidth: 3),
+          const SizedBox(height: 20),
+          Text('Checking your photo with AI…',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center),
+          const SizedBox(height: 6),
+          Text('This takes about 2 seconds.',
+              style: Theme.of(context).textTheme.bodySmall),
+        ],
       ),
     );
   }

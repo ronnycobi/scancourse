@@ -72,6 +72,67 @@ Rules:
 '''
 
 
+PROMPT_PRECHECK = '''You are doing a quick quality check on an image a learner is about to upload as their school report card.
+
+Look at the image and return ONLY valid JSON in this exact shape:
+
+{
+  "is_report": <true if this looks like a school report / academic transcript, false otherwise>,
+  "quality": "<one of: good, blurry, dark, cropped, glare>",
+  "marks_readable": <true if subject marks are clearly visible and readable, false if not>,
+  "issues": [<short strings, e.g. "blurry text", "marks cut off at bottom", "wrong document">],
+  "suggestion": "<one short sentence telling the learner what to do, e.g. 'Retake the photo with better lighting'. Empty string if no issues.>"
+}
+
+Be strict: if marks aren't crisp and readable, mark quality lower. Output ONLY the JSON.
+'''
+
+
+def precheck_image(image_path: str) -> dict:
+    """
+    Fast pre-flight check before a real OCR upload. Returns:
+      {is_report: bool, quality: str, marks_readable: bool,
+       issues: [str], suggestion: str}
+    On any failure, returns a permissive "ok" verdict so the user
+    isn't blocked by an AI hiccup.
+    """
+    fallback = {
+        'is_report': True,
+        'quality': 'good',
+        'marks_readable': True,
+        'issues': [],
+        'suggestion': '',
+    }
+    if not is_available():
+        return fallback
+    try:
+        _configure()
+        path = Path(image_path)
+        model = genai.GenerativeModel(
+            settings.GEMINI_MODEL,
+            generation_config={'response_mime_type': 'application/json'},
+        )
+        response = model.generate_content([
+            {'mime_type': _mime_for(path), 'data': path.read_bytes()},
+            PROMPT_PRECHECK,
+        ])
+        raw = re.sub(r'^```(?:json)?\s*|\s*```$', '',
+                     (response.text or '').strip(),
+                     flags=re.IGNORECASE)
+        data = json.loads(raw)
+        # Defensive defaults
+        return {
+            'is_report': bool(data.get('is_report', True)),
+            'quality': str(data.get('quality') or 'good'),
+            'marks_readable': bool(data.get('marks_readable', True)),
+            'issues': [str(x) for x in (data.get('issues') or [])][:5],
+            'suggestion': str(data.get('suggestion') or '')[:240],
+        }
+    except Exception as e:
+        logger.warning('Precheck failed, allowing upload: %s', e)
+        return fallback
+
+
 def extract_text(image_path: str) -> str:
     """Plain-text OCR via Gemini. Drop-in for the existing pipeline."""
     if not is_available():
