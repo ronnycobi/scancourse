@@ -43,7 +43,10 @@ services:
         scope: RUN_TIME
 
       - key: ALLOWED_HOSTS
-        value: ${APP_DOMAIN},${_self.PUBLIC_URL}
+        # Bare hostnames only — Django rejects values with scheme (e.g. https://)
+        # so we can't use ${_self.PUBLIC_URL} which includes it. Add your
+        # custom domain(s) here too once DNS resolves.
+        value: scancourse-sf8zg.ondigitalocean.app,scancourse.co.za,www.scancourse.co.za,localhost,127.0.0.1
         scope: RUN_TIME
 
       - key: DATABASE_URL
