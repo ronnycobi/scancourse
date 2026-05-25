@@ -158,26 +158,22 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    # ── Throttling ────────────────────────────────────────────────────
-    # Global ceilings so a single client can't hammer the API. Scoped
-    # views (login, register, AI calls, OCR) override these with their
-    # own tighter limits via the `throttle_scope` attribute.
+    # ── Throttling: SCOPED ONLY ───────────────────────────────────────
+    # Only views that opt-in via `throttle_scope` get throttled. Global
+    # anon/user throttles caused 500s on production (likely cache backend
+    # contention with the dev DB tier) — keep them off until we have Redis.
     'DEFAULT_THROTTLE_CLASSES': (
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
         'rest_framework.throttling.ScopedRateThrottle',
     ),
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '60/min',            # unauthenticated browsing
-        'user': '240/min',           # logged-in app traffic
         'login': '10/hour',          # brute-force protection
         'register': '5/hour',        # signup abuse
         'password_reset': '5/hour',  # email-bombing protection
         'ocr_precheck': '20/hour',   # Gemini cost guard
-        'ocr_upload': '15/hour',     # Gemini cost guard
-        'ai_explain': '30/hour',     # per-course explanations
-        'ai_plan': '10/hour',        # improvement-plan generations
-        'ai_chat': '60/hour',        # generic AI assistant
+        'ocr_upload': '15/hour',
+        'ai_explain': '30/hour',
+        'ai_plan': '10/hour',
+        'ai_chat': '60/hour',
     },
 }
 
