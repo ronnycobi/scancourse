@@ -78,6 +78,13 @@ databases:
   - name: db
     engine: PG
     version: "16"
-    size: db-s-dev-database   # ~$7/mo dev tier
+    # Basic production tier — unlocks point-in-time recovery (restore to any
+    # second in the last 7 days), faster self-serve restores, larger connection
+    # pool. ~$15/mo for 1GB RAM / 10GB disk.
+    #
+    # After merging, also resize the live DB in the DO dashboard:
+    #   Databases → scancourse-db → Settings → Resize Now
+    # Without that step the spec change alone won't migrate the existing tier.
+    size: db-s-1vcpu-1gb
     num_nodes: 1
-    production: false
+    production: true
