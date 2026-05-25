@@ -54,7 +54,8 @@ LOCAL_APPS = [
     'apps.outcomes',
     'apps.sponsorships',
     'apps.course_importer',
-    # Skipped (need external services): apps.whatsapp, apps.search
+    'apps.whatsapp',
+    # Skipped (need external services): apps.search
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
