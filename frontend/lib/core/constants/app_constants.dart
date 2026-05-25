@@ -8,6 +8,16 @@ class AppConstants {
     defaultValue: 'https://scancourse-sf8zg.ondigitalocean.app/api/v1',
   );
 
+  // Google OAuth — paste the WEB client ID from Google Cloud Console here
+  // (the one ending in .apps.googleusercontent.com). It's needed so the
+  // mobile sign-in returns an idToken our Django backend can verify.
+  // Until this is set, the "Continue with Google" button surfaces a clear
+  // "not configured" message instead of silently failing.
+  static const String googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: '',
+  );
+
   // Local storage keys
   static const String accessTokenKey = 'access_token';
   static const String refreshTokenKey = 'refresh_token';

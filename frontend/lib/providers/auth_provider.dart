@@ -122,13 +122,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   String _parseError(dynamic e) {
+    String _humanise(String raw) {
+      // Friendlier wording for the most common login failure. The backend
+      // intentionally uses one generic message for both "user doesn't
+      // exist" and "wrong password" so we don't leak which emails are
+      // registered — keep that, but say it in plain English.
+      final lower = raw.toLowerCase();
+      if (lower.contains('invalid credentials')) {
+        return 'Wrong email or password. Please check and try again.';
+      }
+      return raw;
+    }
+
     if (e is DioException) {
       final data = e.response?.data;
       if (data is Map) {
-        if (data['detail'] != null) return data['detail'].toString();
+        if (data['detail'] != null) return _humanise(data['detail'].toString());
         if (data['non_field_errors'] != null) {
           final v = data['non_field_errors'];
-          return v is List ? v.join(', ') : v.toString();
+          final raw = v is List ? v.join(', ') : v.toString();
+          return _humanise(raw);
         }
         // Field-level errors — collect all
         final msgs = <String>[];
@@ -136,9 +149,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
           final v = entry.value;
           msgs.add(v is List ? v.join(', ') : v.toString());
         }
-        if (msgs.isNotEmpty) return msgs.join('\n');
+        if (msgs.isNotEmpty) return _humanise(msgs.join('\n'));
       }
-      if (e.response?.statusCode == 401) return 'Invalid email or password.';
+      if (e.response?.statusCode == 401) {
+        return 'Wrong email or password. Please check and try again.';
+      }
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout) {
         return 'Connection timed out. Check your network.';
