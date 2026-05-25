@@ -1,4 +1,4 @@
-"""URL config for local-dev mode (excludes whatsapp, search)."""
+"""URL config for local-dev mode (excludes search app)."""
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings

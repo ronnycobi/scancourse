@@ -54,8 +54,7 @@ LOCAL_APPS = [
     'apps.outcomes',
     'apps.sponsorships',
     'apps.course_importer',
-    'apps.whatsapp',
-    # Skipped (need external services): apps.search
+    # Skipped (needs external services): apps.search
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -178,12 +177,6 @@ GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')
 # Google Cloud Vision (for OCR of report cards) — pulls from env var.
 GOOGLE_CLOUD_API_KEY = os.environ.get('GOOGLE_CLOUD_API_KEY', '')
 GOOGLE_APPLICATION_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
-
-# Twilio (optional — only used if you set them)
-TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
-TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
-TWILIO_WHATSAPP_FROM = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886')
-TWILIO_VALIDATE_SIGNATURE = False
 
 # OCR — Tesseract path (only matters if you've installed it)
 TESSERACT_CMD = os.environ.get('TESSERACT_CMD', '/opt/homebrew/bin/tesseract')

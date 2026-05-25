@@ -44,7 +44,6 @@ LOCAL_APPS = [
     'apps.ocr',
     'apps.ai_assistant',
     'apps.notifications',
-    'apps.whatsapp',
     'apps.applications',
     'apps.documents',
     'apps.roommates',
@@ -206,12 +205,6 @@ GOOGLE_CLOUD_API_KEY = env('GOOGLE_CLOUD_API_KEY', default='')
 GOOGLE_APPLICATION_CREDENTIALS = env(
     'GOOGLE_APPLICATION_CREDENTIALS', default='',
 )
-
-# Twilio WhatsApp
-TWILIO_ACCOUNT_SID = env('TWILIO_ACCOUNT_SID', default='')
-TWILIO_AUTH_TOKEN = env('TWILIO_AUTH_TOKEN', default='')
-TWILIO_WHATSAPP_FROM = env('TWILIO_WHATSAPP_FROM', default='whatsapp:+14155238886')  # Twilio sandbox default
-TWILIO_VALIDATE_SIGNATURE = env.bool('TWILIO_VALIDATE_SIGNATURE', default=True)
 
 # Meilisearch
 MEILISEARCH_URL = env('MEILISEARCH_URL', default='http://meilisearch:7700')

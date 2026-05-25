@@ -35,7 +35,6 @@ urlpatterns = [
     path('legal/cookies/', legal_views.cookies_page, name='legal-cookies-page'),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_v1)),
-    path('whatsapp/', include('apps.whatsapp.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
