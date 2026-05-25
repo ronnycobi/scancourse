@@ -17,6 +17,7 @@ from . import gemini_vision
 class ReportUploadView(generics.CreateAPIView):
     serializer_class = ReportUploadSerializer
     parser_classes = (MultiPartParser, FormParser)
+    throttle_scope = 'ocr_upload'
 
     def perform_create(self, serializer):
         report = serializer.save(user=self.request.user)
@@ -132,6 +133,7 @@ class ImagePrecheckView(APIView):
     Saves users from waiting 20s for OCR only to be told the photo was unusable.
     """
     parser_classes = (MultiPartParser, FormParser)
+    throttle_scope = 'ocr_precheck'
 
     def post(self, request):
         f = request.FILES.get('file')
@@ -169,6 +171,8 @@ class ImprovementPlanView(APIView):
     Asks Gemini for a 3-action plan to close the user's APS gaps, grounded in
     their actual subject marks + saved/recommended courses.
     """
+    throttle_scope = 'ai_plan'
+
     def get(self, request):
         from .aggregator import best_aps_for_user
         from apps.courses.models import Course

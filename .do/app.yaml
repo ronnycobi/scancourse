@@ -49,6 +49,12 @@ services:
         value: scancourse-sf8zg.ondigitalocean.app,scancourse.co.za,www.scancourse.co.za,localhost,127.0.0.1
         scope: RUN_TIME
 
+      # CORS: only allow our own web origins. Mobile app (native Dio HTTP
+      # client) is unaffected — CORS only applies to browser fetches.
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://scancourse.co.za,https://www.scancourse.co.za,https://scancourse-sf8zg.ondigitalocean.app
+        scope: RUN_TIME
+
       - key: DATABASE_URL
         value: ${db.DATABASE_URL}
         scope: RUN_TIME

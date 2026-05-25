@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class ChatView(APIView):
+    throttle_scope = 'ai_chat'
+
     def post(self, request):
         serializer = ChatInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -87,6 +89,8 @@ class MotivationLetterDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class MotivationLetterGenerateView(APIView):
+    throttle_scope = 'ai_plan'  # heavy generation, reuse the strict bucket
+
     def post(self, request):
         from .serializers import MotivationLetterGenerateSerializer, MotivationLetterSerializer
         from .models import MotivationLetter

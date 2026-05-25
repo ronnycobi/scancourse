@@ -23,6 +23,9 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
+    # Lets LogoutView actually invalidate refresh tokens (it already calls
+    # token.blacklist(); without this app it silently no-ops).
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
     'django_celery_beat',
@@ -98,10 +101,21 @@ AUTH_USER_MODEL = 'users.User'
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},
+    },
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+    # Custom: require at least one letter and one digit
+    {'NAME': 'apps.users.password_validators.LetterDigitValidator'},
 ]
+
+# Global cap on incoming request body size (defaults are 2.5MB, way too small
+# for OCR uploads; per-view validators still enforce a stricter 20MB for files).
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25 MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
 
 LANGUAGE_CODE = 'en'
 TIME_ZONE = 'Africa/Johannesburg'
@@ -144,6 +158,27 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # ── Throttling ────────────────────────────────────────────────────
+    # Global ceilings so a single client can't hammer the API. Scoped
+    # views (login, register, AI calls, OCR) override these with their
+    # own tighter limits via the `throttle_scope` attribute.
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '60/min',            # unauthenticated browsing
+        'user': '240/min',           # logged-in app traffic
+        'login': '10/hour',          # brute-force protection
+        'register': '5/hour',        # signup abuse
+        'password_reset': '5/hour',  # email-bombing protection
+        'ocr_precheck': '20/hour',   # Gemini cost guard
+        'ocr_upload': '15/hour',     # Gemini cost guard
+        'ai_explain': '30/hour',     # per-course explanations
+        'ai_plan': '10/hour',        # improvement-plan generations
+        'ai_chat': '60/hour',        # generic AI assistant
+    },
 }
 
 SIMPLE_JWT = {

@@ -3,7 +3,6 @@ POPIA-compliant data rights endpoints + public legal pages.
 """
 import json
 import logging
-import markdown as md
 from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse, HttpResponse
@@ -36,6 +35,7 @@ _PAGE_DOCS = {
 
 
 def _legal_page(request, slug):
+    import markdown as md  # lazy import — only the public legal pages need it
     doc = _PAGE_DOCS[slug]
     html = md.markdown(
         doc['content'],

@@ -204,6 +204,7 @@ class ExplainGapView(APIView):
     grounded in the user's actual marks and the course's actual requirements.
     """
     permission_classes = (permissions.IsAuthenticated,)
+    throttle_scope = 'ai_explain'
 
     def get(self, request, pk):
         try:

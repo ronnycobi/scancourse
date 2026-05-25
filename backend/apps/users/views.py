@@ -22,6 +22,7 @@ User = get_user_model()
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = (permissions.AllowAny,)
+    throttle_scope = 'register'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -32,6 +33,7 @@ class RegisterView(generics.CreateAPIView):
 
 class LoginView(APIView):
     permission_classes = (permissions.AllowAny,)
+    throttle_scope = 'login'
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -120,6 +122,7 @@ class AvailableLanguagesView(APIView):
 
 class GoogleAuthView(APIView):
     permission_classes = (permissions.AllowAny,)
+    throttle_scope = 'login'
 
     def post(self, request):
         from google.oauth2 import id_token
@@ -160,6 +163,7 @@ class PasswordResetRequestView(APIView):
     avoid leaking which emails exist.
     """
     permission_classes = (permissions.AllowAny,)
+    throttle_scope = 'password_reset'
 
     def post(self, request):
         email = (request.data.get('email') or '').strip().lower()
@@ -191,6 +195,7 @@ class PasswordResetConfirmView(APIView):
     POST /auth/password-reset/confirm/  body: {uid, token, new_password}
     """
     permission_classes = (permissions.AllowAny,)
+    throttle_scope = 'password_reset'
 
     def post(self, request):
         uid = request.data.get('uid')
