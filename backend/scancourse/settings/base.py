@@ -158,23 +158,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    # ── Throttling: SCOPED ONLY ───────────────────────────────────────
-    # Only views that opt-in via `throttle_scope` get throttled. Global
-    # anon/user throttles caused 500s on production (likely cache backend
-    # contention with the dev DB tier) — keep them off until we have Redis.
-    'DEFAULT_THROTTLE_CLASSES': (
-        'rest_framework.throttling.ScopedRateThrottle',
-    ),
-    'DEFAULT_THROTTLE_RATES': {
-        'login': '10/hour',          # brute-force protection
-        'register': '5/hour',        # signup abuse
-        'password_reset': '5/hour',  # email-bombing protection
-        'ocr_precheck': '20/hour',   # Gemini cost guard
-        'ocr_upload': '15/hour',
-        'ai_explain': '30/hour',
-        'ai_plan': '10/hour',
-        'ai_chat': '60/hour',
-    },
+    # NOTE: Throttling temporarily disabled. DRF throttles need a working
+    # cache backend; the production environment's default LocMemCache was
+    # 500-ing under multi-worker gunicorn. Re-enable once REDIS_URL is set
+    # and CACHES is wired to django_redis (see TODO in production.py).
 }
 
 SIMPLE_JWT = {
