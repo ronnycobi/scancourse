@@ -130,13 +130,40 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   String _parseError(dynamic e) {
     String _humanise(String raw) {
-      // Friendlier wording for the most common login failure. The backend
-      // intentionally uses one generic message for both "user doesn't
-      // exist" and "wrong password" so we don't leak which emails are
-      // registered — keep that, but say it in plain English.
+      // Translate the most common Django auth error strings into friendlier
+      // wording. The backend keeps the original generic phrasing on purpose
+      // (e.g. one message for "user doesn't exist" + "wrong password" to
+      // avoid leaking account existence) — we just say it more humanly.
       final lower = raw.toLowerCase();
       if (lower.contains('invalid credentials')) {
         return 'Wrong email or password. Please check and try again.';
+      }
+      if (lower.contains('email') &&
+          (lower.contains('already exists') || lower.contains('already in use'))) {
+        return 'That email is already registered. Try signing in instead.';
+      }
+      if (lower.contains('username') && lower.contains('already exists')) {
+        return 'That username is taken — pick another.';
+      }
+      if (lower.contains('too common') || lower.contains('common password')) {
+        return 'That password is too easy to guess — pick something stronger.';
+      }
+      if (lower.contains('too similar')) {
+        return 'Password is too similar to your name or email — make it more different.';
+      }
+      if (lower.contains('entirely numeric')) {
+        return 'Password can\'t be all numbers. Add some letters too.';
+      }
+      if (lower.contains('at least one letter') &&
+          lower.contains('at least one number') == false &&
+          lower.contains('digit')) {
+        return 'Password must include a letter AND a number.';
+      }
+      if (lower.contains('passwords do not match')) {
+        return 'Passwords don\'t match. Please retype them.';
+      }
+      if (lower.contains('this field is required')) {
+        return 'Please fill in every field.';
       }
       return raw;
     }

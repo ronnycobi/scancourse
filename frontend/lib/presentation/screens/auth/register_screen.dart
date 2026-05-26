@@ -85,7 +85,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     child: AppTextField(
                       label: 'First name',
                       controller: _firstNameCtrl,
-                      validator: (v) => v != null && v.isNotEmpty ? null : 'Required',
+                      prefixIcon: Icons.person_outline,
+                      validator: (v) => (v?.trim().isEmpty ?? true)
+                          ? 'Please enter your first name'
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -93,7 +96,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     child: AppTextField(
                       label: 'Last name',
                       controller: _lastNameCtrl,
-                      validator: (v) => v != null && v.isNotEmpty ? null : 'Required',
+                      prefixIcon: Icons.person_outline,
+                      validator: (v) => (v?.trim().isEmpty ?? true)
+                          ? 'Please enter your last name'
+                          : null,
                     ),
                   ),
                 ]),
@@ -104,7 +110,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                   prefixIcon: Icons.email_outlined,
-                  validator: (v) => v != null && v.contains('@') ? null : 'Enter a valid email',
+                  validator: (v) {
+                    final s = v?.trim() ?? '';
+                    if (s.isEmpty) return 'Please enter your email';
+                    if (!s.contains('@') || !s.contains('.')) {
+                      return 'Enter a valid email address';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 AppTextField(
@@ -112,19 +125,38 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   hint: 'Choose a username',
                   controller: _usernameCtrl,
                   prefixIcon: Icons.alternate_email,
-                  validator: (v) => v != null && v.length >= 3 ? null : 'Minimum 3 characters',
+                  validator: (v) {
+                    final s = v?.trim() ?? '';
+                    if (s.isEmpty) return 'Pick a username';
+                    if (s.length < 3) return 'At least 3 characters';
+                    if (!RegExp(r'^[a-zA-Z0-9_.]+$').hasMatch(s)) {
+                      return 'Letters, numbers, _ and . only';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 AppTextField(
                   label: 'Password',
+                  hint: 'At least 8 characters, with a number',
                   controller: _passwordCtrl,
                   obscureText: _obscure,
                   prefixIcon: Icons.lock_outline,
                   suffixIcon: IconButton(
-                    icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                    icon: Icon(_obscure
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),
-                  validator: (v) => v != null && v.length >= 8 ? null : 'Minimum 8 characters',
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Choose a password';
+                    if (v.length < 8) return 'At least 8 characters';
+                    if (!RegExp(r'[A-Za-z]').hasMatch(v) ||
+                        !RegExp(r'\d').hasMatch(v)) {
+                      return 'Must include a letter AND a digit';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 AppTextField(
@@ -132,7 +164,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _confirmCtrl,
                   obscureText: _obscure,
                   prefixIcon: Icons.lock_outline,
-                  validator: (v) => v == _passwordCtrl.text ? null : 'Passwords do not match',
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Confirm your password';
+                    if (v != _passwordCtrl.text) return 'Passwords do not match';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 24),
                 Padding(
