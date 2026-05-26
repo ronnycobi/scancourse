@@ -242,36 +242,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   isLoading: isLoading,
                   onPressed: _login,
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    const Expanded(child: Divider()),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('or',
-                          style: Theme.of(context).textTheme.bodySmall),
-                    ),
-                    const Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                OutlinedButton.icon(
-                  onPressed: _googleBusy ? null : _googleSignIn,
-                  icon: _googleBusy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const _GoogleGlyph(),
-                  label: Text(_googleBusy
-                      ? 'Signing in…'
-                      : 'Continue with Google'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    side: const BorderSide(color: AppColors.border),
+                // Google sign-in section is only shown when the Web OAuth
+                // client ID has been provided at build time via
+                // --dart-define=GOOGLE_SERVER_CLIENT_ID=...
+                // Hiding it until then avoids confusing users with a button
+                // that can't complete the flow.
+                if (AppConstants.googleServerClientId.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Expanded(child: Divider()),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text('or',
+                            style: Theme.of(context).textTheme.bodySmall),
+                      ),
+                      const Expanded(child: Divider()),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                    onPressed: _googleBusy ? null : _googleSignIn,
+                    icon: _googleBusy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const _GoogleGlyph(),
+                    label: Text(_googleBusy
+                        ? 'Signing in…'
+                        : 'Continue with Google'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      side: const BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
