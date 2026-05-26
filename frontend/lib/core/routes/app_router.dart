@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../presentation/screens/auth/login_screen.dart';
 import '../../presentation/screens/auth/register_screen.dart';
 import '../../presentation/screens/auth/forgot_password_screen.dart';
+import '../../presentation/screens/auth/reset_password_screen.dart';
 import '../../presentation/screens/onboarding/onboarding_screen.dart';
 import '../../presentation/screens/onboarding/splash_screen.dart';
 import '../../presentation/screens/home/home_screen.dart';
@@ -43,7 +44,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (location == '/splash') return null;
 
-      final authRoutes = ['/login', '/register', '/forgot-password'];
+      final authRoutes = ['/login', '/register', '/forgot-password', '/reset-password'];
       // Public routes that should be accessible without authentication.
       final publicPrefixes = ['/legal/'];
       final isPublic = publicPrefixes.any(location.startsWith);
@@ -59,6 +60,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
+      GoRoute(
+        path: '/reset-password',
+        builder: (_, state) {
+          final params = state.uri.queryParameters;
+          return ResetPasswordScreen(
+            initialUid: params['uid'],
+            initialToken: params['token'],
+          );
+        },
+      ),
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),
