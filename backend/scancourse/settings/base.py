@@ -12,6 +12,8 @@ DEBUG = env.bool('DEBUG', default=False)
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
 
 DJANGO_APPS = [
+    # MUST be before 'django.contrib.admin' — Jazzmin replaces admin templates.
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -251,5 +253,116 @@ LOGGING = {
     'loggers': {
         'django': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
         'apps': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
+    },
+}
+
+# ── Jazzmin admin theme ──────────────────────────────────────────────
+# Modern dark/light sidebar admin layout. All custom config lives here.
+JAZZMIN_SETTINGS = {
+    'site_title': 'Scancourse Admin',
+    'site_header': 'Scancourse',
+    'site_brand': 'Scancourse',
+    'site_logo': 'landing/scancourse-logo.png',
+    'login_logo': 'landing/scancourse-logo.png',
+    'site_logo_classes': 'img-circle',
+    'site_icon': 'landing/scancourse-logo.png',
+    'welcome_sign': 'Welcome to the Scancourse Admin',
+    'copyright': 'Scancourse · scancourse.co.za',
+    'search_model': ['users.User', 'courses.Course', 'bursaries.Bursary'],
+
+    # Top menu — links shown in the navbar
+    'topmenu_links': [
+        {'name': 'Dashboard', 'url': 'admin:index', 'permissions': ['auth.view_user']},
+        {'name': 'Website', 'url': 'https://scancourse.co.za', 'new_window': True},
+        {'app': 'users'},
+    ],
+
+    # Side menu ordering — most useful sections at top
+    'order_with_respect_to': [
+        'users.User',
+        'ocr.Report',
+        'ocr.APSResult',
+        'courses.Course',
+        'courses.CourseOffering',
+        'institutions.Institution',
+        'bursaries.Bursary',
+        'accommodation',
+        'applications',
+        'legal',
+        'auth',
+    ],
+
+    # Nice icons per model
+    'icons': {
+        'auth': 'fas fa-users-cog',
+        'auth.user': 'fas fa-user',
+        'auth.Group': 'fas fa-users',
+        'users.User': 'fas fa-user-graduate',
+        'users.SavedItem': 'fas fa-bookmark',
+        'ocr.Report': 'fas fa-file-image',
+        'ocr.APSResult': 'fas fa-calculator',
+        'ocr.Subject': 'fas fa-book',
+        'courses.Course': 'fas fa-graduation-cap',
+        'courses.CourseOffering': 'fas fa-university',
+        'courses.CourseInteraction': 'fas fa-eye',
+        'institutions.Institution': 'fas fa-school',
+        'bursaries.Bursary': 'fas fa-hand-holding-usd',
+        'accommodation.Accommodation': 'fas fa-home',
+        'applications.Application': 'fas fa-file-signature',
+        'legal.ConsentRecord': 'fas fa-file-contract',
+        'legal.DataExportRequest': 'fas fa-file-export',
+        'legal.AccountDeletionRequest': 'fas fa-user-times',
+        'notifications': 'fas fa-bell',
+        'ai_assistant.ChatSession': 'fas fa-robot',
+        'token_blacklist': 'fas fa-key',
+    },
+    'default_icon_parents': 'fas fa-folder',
+    'default_icon_children': 'fas fa-circle',
+
+    # UI behaviour
+    'related_modal_active': True,
+    'use_google_fonts_cdn': True,
+    'show_ui_builder': False,
+
+    # Custom links in the user dropdown (top right)
+    'usermenu_links': [
+        {'name': 'View website', 'url': 'https://scancourse.co.za', 'new_window': True},
+        {'model': 'auth.user'},
+    ],
+
+    # Custom CSS additions
+    'custom_css': None,
+    'custom_js': None,
+}
+
+JAZZMIN_UI_TWEAKS = {
+    'navbar_small_text': False,
+    'footer_small_text': True,
+    'body_small_text': False,
+    'brand_small_text': False,
+    'brand_colour': 'navbar-primary',
+    'accent': 'accent-primary',
+    'navbar': 'navbar-primary navbar-dark',
+    'no_navbar_border': False,
+    'navbar_fixed': True,
+    'layout_boxed': False,
+    'footer_fixed': False,
+    'sidebar_fixed': True,
+    'sidebar': 'sidebar-dark-primary',
+    'sidebar_nav_small_text': False,
+    'sidebar_disable_expand': False,
+    'sidebar_nav_child_indent': True,
+    'sidebar_nav_compact_style': True,
+    'sidebar_nav_legacy_style': False,
+    'sidebar_nav_flat_style': False,
+    'theme': 'default',
+    'dark_mode_theme': None,
+    'button_classes': {
+        'primary': 'btn-primary',
+        'secondary': 'btn-secondary',
+        'info': 'btn-info',
+        'warning': 'btn-warning',
+        'danger': 'btn-danger',
+        'success': 'btn-success',
     },
 }

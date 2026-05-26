@@ -1,0 +1,247 @@
+{% extends "admin/index.html" %}
+{% load i18n static %}
+
+{% block content %}
+{# ── Stats dashboard injected above the default Jazzmin index ────── #}
+<div class="row mb-3">
+  <div class="col-12">
+    <h3 class="mb-3" style="font-weight:700;">
+      <i class="fas fa-chart-line text-primary"></i>
+      Scancourse at a glance
+    </h3>
+  </div>
+</div>
+
+{# Top-line counters #}
+<div class="row">
+  <div class="col-md-3 col-sm-6">
+    <div class="small-box bg-primary">
+      <div class="inner">
+        <h3>{{ stats.users_total|default:0 }}</h3>
+        <p>Total Users</p>
+      </div>
+      <div class="icon"><i class="fas fa-user-graduate"></i></div>
+      <a href="{% url 'admin:users_user_changelist' %}" class="small-box-footer">
+        Manage users <i class="fas fa-arrow-circle-right"></i>
+      </a>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="small-box bg-success">
+      <div class="inner">
+        <h3>{{ stats.users_week|default:0 }}</h3>
+        <p>New signups (7 days)</p>
+      </div>
+      <div class="icon"><i class="fas fa-user-plus"></i></div>
+      <a href="{% url 'admin:users_user_changelist' %}?date_joined__gte={{ stats.week_ago_iso }}"
+         class="small-box-footer">
+        View list <i class="fas fa-arrow-circle-right"></i>
+      </a>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="small-box bg-info">
+      <div class="inner">
+        <h3>{{ stats.reports_total|default:0 }}</h3>
+        <p>Reports Scanned</p>
+      </div>
+      <div class="icon"><i class="fas fa-file-image"></i></div>
+      <a href="{% url 'admin:ocr_report_changelist' %}" class="small-box-footer">
+        View reports <i class="fas fa-arrow-circle-right"></i>
+      </a>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="small-box bg-warning">
+      <div class="inner">
+        <h3>{{ stats.aps_avg|default:"—" }}</h3>
+        <p>Average APS</p>
+      </div>
+      <div class="icon"><i class="fas fa-calculator"></i></div>
+      <a href="{% url 'admin:ocr_apsresult_changelist' %}" class="small-box-footer">
+        View results <i class="fas fa-arrow-circle-right"></i>
+      </a>
+    </div>
+  </div>
+</div>
+
+{# Second row — content catalogue stats #}
+<div class="row">
+  <div class="col-md-3 col-sm-6">
+    <div class="small-box bg-secondary">
+      <div class="inner">
+        <h3>{{ stats.courses_total|default:0 }}</h3>
+        <p>Active Courses</p>
+      </div>
+      <div class="icon"><i class="fas fa-graduation-cap"></i></div>
+      <a href="{% url 'admin:courses_course_changelist' %}" class="small-box-footer">
+        Browse courses <i class="fas fa-arrow-circle-right"></i>
+      </a>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="small-box bg-secondary">
+      <div class="inner">
+        <h3>{{ stats.institutions_total|default:0 }}</h3>
+        <p>Institutions</p>
+      </div>
+      <div class="icon"><i class="fas fa-school"></i></div>
+      <a href="{% url 'admin:institutions_institution_changelist' %}" class="small-box-footer">
+        View institutions <i class="fas fa-arrow-circle-right"></i>
+      </a>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="small-box bg-secondary">
+      <div class="inner">
+        <h3>{{ stats.bursaries_total|default:0 }}</h3>
+        <p>Bursaries</p>
+      </div>
+      <div class="icon"><i class="fas fa-hand-holding-usd"></i></div>
+      <a href="{% url 'admin:bursaries_bursary_changelist' %}" class="small-box-footer">
+        View bursaries <i class="fas fa-arrow-circle-right"></i>
+      </a>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="small-box bg-secondary">
+      <div class="inner">
+        <h3>{{ stats.applications_total|default:0 }}</h3>
+        <p>Applications</p>
+      </div>
+      <div class="icon"><i class="fas fa-file-signature"></i></div>
+      <a href="{% url 'admin:applications_application_changelist' %}" class="small-box-footer">
+        View applications <i class="fas fa-arrow-circle-right"></i>
+      </a>
+    </div>
+  </div>
+</div>
+
+{# Charts row #}
+<div class="row">
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h3 class="card-title mb-0">
+          <i class="fas fa-chart-area"></i> Signups · last 14 days
+        </h3>
+      </div>
+      <div class="card-body">
+        <canvas id="signupsChart" style="height:240px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header bg-info text-white">
+        <h3 class="card-title mb-0">
+          <i class="fas fa-trophy"></i> Top course fields
+        </h3>
+      </div>
+      <div class="card-body" style="max-height:280px; overflow-y:auto;">
+        {% if stats.top_fields %}
+          <ul class="list-unstyled mb-0">
+            {% for f in stats.top_fields %}
+              <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                <span><i class="fas fa-folder text-info"></i> {{ f.field }}</span>
+                <span class="badge bg-primary rounded-pill">{{ f.count }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No course data yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Recent signups list #}
+{% if stats.recent_users %}
+<div class="row">
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-header bg-success text-white">
+        <h3 class="card-title mb-0">
+          <i class="fas fa-clock"></i> Recently joined
+        </h3>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-striped mb-0">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Grade</th>
+              <th>Joined</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for u in stats.recent_users %}
+            <tr>
+              <td>{{ u.email }}</td>
+              <td>{{ u.first_name }} {{ u.last_name }}</td>
+              <td>{{ u.grade|default:"—" }}</td>
+              <td>{{ u.date_joined|date:"d M H:i" }}</td>
+              <td>
+                <a href="{% url 'admin:users_user_change' u.id %}" class="btn btn-sm btn-outline-primary">
+                  <i class="fas fa-eye"></i>
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<hr style="margin: 32px 0 24px;" />
+
+{# Default Jazzmin app list below the dashboard widgets #}
+{{ block.super }}
+
+{# Chart.js — small CDN payload, only loaded on this index page #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  const labels = {{ stats.chart_labels_json|safe }};
+  const data = {{ stats.chart_data_json|safe }};
+  const ctx = document.getElementById('signupsChart');
+  if (!ctx || !labels.length) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'New users',
+        data: data,
+        fill: true,
+        backgroundColor: 'rgba(30, 64, 175, 0.15)',
+        borderColor: '#1E40AF',
+        tension: 0.35,
+        pointRadius: 4,
+        pointBackgroundColor: '#1E40AF',
+      }],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0 } },
+      },
+    },
+  });
+})();
+</script>
+{% endblock %}

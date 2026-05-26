@@ -5,6 +5,13 @@ from django.conf.urls.static import static
 from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from apps.legal import views as legal_views
+from . import admin_dashboard
+
+# Admin branding + custom dashboard
+admin.site.site_header = 'Scancourse Admin'
+admin.site.site_title = 'Scancourse'
+admin.site.index_title = 'Dashboard'
+admin_dashboard.install()
 
 api_v1 = [
     path('auth/', include('apps.users.urls')),
