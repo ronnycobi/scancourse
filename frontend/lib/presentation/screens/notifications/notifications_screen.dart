@@ -129,7 +129,7 @@ class NotificationsScreen extends ConsumerWidget {
   }
 }
 
-class _NotificationTile extends StatelessWidget {
+class _NotificationTile extends ConsumerWidget {
   final NotificationItem item;
   const _NotificationTile({required this.item});
 
@@ -137,58 +137,146 @@ class _NotificationTile extends StatelessWidget {
     switch (item.type) {
       case 'deadline':
         return Icons.event_outlined;
+      case 'new_course':
       case 'match':
         return Icons.school_outlined;
       case 'bursary':
         return Icons.card_giftcard_outlined;
       case 'application':
         return Icons.assignment_outlined;
+      case 'aps':
+        return Icons.trending_up_rounded;
       default:
         return Icons.notifications_outlined;
     }
   }
 
+  Color get _iconColor {
+    switch (item.type) {
+      case 'deadline':
+        return AppColors.accent;
+      case 'bursary':
+        return AppColors.secondary;
+      case 'aps':
+        return AppColors.primary;
+      case 'new_course':
+      case 'match':
+        return AppColors.eligible;
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  /// Where tapping the notification should take the user.
+  String? _deepLink() {
+    final d = item.data ?? const {};
+    switch (item.type) {
+      case 'new_course':
+      case 'match':
+        return '/courses';
+      case 'deadline':
+        return '/courses';
+      case 'bursary':
+        // If we have specific bursary IDs, open the first.
+        final ids = (d['bursary_ids'] as String?)?.split(',') ?? [];
+        if (ids.isNotEmpty) return '/bursaries/${ids.first}';
+        return '/bursaries';
+      case 'aps':
+        return '/improvement-plan';
+      case 'application':
+        return '/applications';
+      default:
+        return null;
+    }
+  }
+
+  String _timeAgo(String? raw) {
+    if (raw == null) return '';
+    final t = DateTime.tryParse(raw);
+    if (t == null) return '';
+    final diff = DateTime.now().difference(t);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${(diff.inDays / 7).floor()}w';
+  }
+
+  Future<void> _onTap(BuildContext context, WidgetRef ref) async {
+    // Mark this one as read in the background — don't block navigation.
+    if (!item.isRead) {
+      ApiClient.instance.post('/notifications/mark-read/', data: {
+        'ids': [item.id],
+      }).then((_) => ref.invalidate(notificationListProvider))
+          .catchError((_) {});
+    }
+    final route = _deepLink();
+    if (route != null && context.mounted) {
+      context.push(route);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: item.isRead ? Colors.white : AppColors.primaryLight.withOpacity(0.4),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _onTap(context, ref),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.primaryLight,
-            child: Icon(_icon, color: AppColors.primary, size: 18),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: item.isRead
+                ? Colors.white
+                : AppColors.primaryLight.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14)),
-                const SizedBox(height: 4),
-                Text(item.body,
-                    style: const TextStyle(
-                        fontSize: 13, color: AppColors.textSecondary)),
-              ],
-            ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: _iconColor.withOpacity(0.15),
+                child: Icon(_icon, color: _iconColor, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(item.title,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 14)),
+                        ),
+                        Text(_timeAgo(item.sentAt),
+                            style: const TextStyle(
+                                fontSize: 11, color: AppColors.textHint)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(item.body,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            height: 1.4)),
+                  ],
+                ),
+              ),
+              if (!item.isRead)
+                Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(left: 8, top: 4),
+                  decoration: const BoxDecoration(
+                      color: AppColors.primary, shape: BoxShape.circle),
+                ),
+            ],
           ),
-          if (!item.isRead)
-            Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(left: 8, top: 4),
-              decoration: const BoxDecoration(
-                  color: AppColors.primary, shape: BoxShape.circle),
-            ),
-        ],
+        ),
       ),
     );
   }

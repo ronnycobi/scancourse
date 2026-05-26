@@ -196,6 +196,38 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Africa/Johannesburg'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
+# ── Push-notification cadence ────────────────────────────────────────
+# Static schedule used when Celery Beat is running. Each task has its
+# own per-user throttle (see apps/notifications/tasks.py) so it won't
+# spam anyone — these intervals are just how OFTEN we even check.
+from celery.schedules import crontab  # noqa: E402
+CELERY_BEAT_SCHEDULE = {
+    'bursary-deadline-reminders': {
+        'task': 'apps.notifications.tasks.send_bursary_deadline_reminders',
+        # Every weekday at 09:00 SAST
+        'schedule': crontab(hour=9, minute=0, day_of_week='mon-fri'),
+    },
+    'course-deadline-reminders': {
+        'task': 'apps.notifications.tasks.send_course_deadline_reminders',
+        'schedule': crontab(hour=9, minute=5, day_of_week='mon-fri'),
+    },
+    'new-course-matches': {
+        'task': 'apps.notifications.tasks.send_new_course_matches',
+        # Wednesdays at 17:00 — when learners are home from school
+        'schedule': crontab(hour=17, minute=0, day_of_week='wed'),
+    },
+    'aps-improvement-nudge': {
+        'task': 'apps.notifications.tasks.send_aps_improvement_nudge',
+        # Saturdays at 11:00
+        'schedule': crontab(hour=11, minute=0, day_of_week='sat'),
+    },
+    'weekly-digest': {
+        'task': 'apps.notifications.tasks.send_weekly_digest',
+        # Sundays at 19:00 — when learners plan their week
+        'schedule': crontab(hour=19, minute=0, day_of_week='sun'),
+    },
+}
+
 GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
 GEMINI_MODEL = env('GEMINI_MODEL', default='gemini-2.5-flash')
 
