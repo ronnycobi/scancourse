@@ -29,6 +29,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _init();
   }
 
+  /// Clear the last-seen error so dismissing the banner sticks.
+  void clearError() {
+    if (state.error != null) {
+      state = state.copyWith(error: null);
+    }
+  }
+
   Future<void> _init() async {
     final loggedIn = await _repo.isLoggedIn();
     if (!loggedIn) {

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/brand_header.dart';
+import '../../widgets/common/error_banner.dart';
 import '../../widgets/common/loading_button.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -32,6 +34,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _register() async {
+    ref.read(authStateProvider.notifier).clearError();
     if (!_formKey.currentState!.validate()) return;
     await ref.read(authStateProvider.notifier).register(
       email: _emailCtrl.text.trim(),
@@ -41,21 +44,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       password: _passwordCtrl.text,
       passwordConfirm: _confirmCtrl.text,
     );
-    if (mounted) {
-      final state = ref.read(authStateProvider);
-      if (state.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(state.error!), backgroundColor: AppColors.error),
-        );
-      } else {
-        context.go('/onboarding');
-      }
+    if (!mounted) return;
+    final state = ref.read(authStateProvider);
+    // No snackbar — the build() method watches the provider error and the
+    // ErrorBanner renders automatically when something goes wrong.
+    if (state.error == null && state.user != null) {
+      context.go('/onboarding');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = ref.watch(authStateProvider).isLoading;
+    final authState = ref.watch(authStateProvider);
+    final isLoading = authState.isLoading;
 
     return Scaffold(
       appBar: AppBar(leading: const BackButton()),
@@ -67,10 +68,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const BrandHeader(),
+                const SizedBox(height: 28),
                 Text('Create account', style: Theme.of(context).textTheme.headlineLarge),
                 const SizedBox(height: 8),
                 Text('Join thousands of South African students', style: Theme.of(context).textTheme.bodyMedium),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+                ErrorBanner(
+                  message: authState.error,
+                  onDismiss: () =>
+                      ref.read(authStateProvider.notifier).clearError(),
+                ),
+                const SizedBox(height: 8),
                 Row(children: [
                   Expanded(
                     child: AppTextField(

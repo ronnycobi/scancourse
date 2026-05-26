@@ -6,6 +6,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../providers/auth_provider.dart';
 import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/brand_header.dart';
+import '../../widgets/common/error_banner.dart';
 import '../../widgets/common/loading_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -20,12 +22,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
-
-  /// Locally-held error so we can show it INLINE (red banner above the form)
-  /// instead of relying on a snackbar that flashes for 2 seconds at the
-  /// bottom of the screen where the keyboard usually hides it.
-  String? _inlineError;
   bool _googleBusy = false;
+  /// Local override — set when the Google flow itself fails (the global
+  /// auth provider only tracks email/password errors). Cleared on next
+  /// attempt or dismiss.
+  String? _googleError;
 
   @override
   void dispose() {
@@ -35,7 +36,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _login() async {
-    setState(() => _inlineError = null);
+    setState(() => _googleError = null);
+    ref.read(authStateProvider.notifier).clearError();
     if (!_formKey.currentState!.validate()) return;
     await ref.read(authStateProvider.notifier).login(
       _emailCtrl.text.trim(),
@@ -43,9 +45,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
     if (!mounted) return;
     final state = ref.read(authStateProvider);
-    if (state.error != null) {
-      setState(() => _inlineError = state.error);
-    } else if (state.user != null) {
+    // No need to copy state.error into local state — the build() method
+    // watches the provider directly and the ErrorBanner shows automatically.
+    if (state.error == null && state.user != null) {
       context.go('/home');
     }
   }
@@ -53,8 +55,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _googleSignIn() async {
     setState(() {
       _googleBusy = true;
-      _inlineError = null;
+      _googleError = null;
     });
+    ref.read(authStateProvider.notifier).clearError();
     try {
       // serverClientId is the Web OAuth client ID from Google Cloud Console.
       // Required so we get an idToken the Django backend can verify.
@@ -77,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (idToken == null || idToken.isEmpty) {
         setState(() {
           _googleBusy = false;
-          _inlineError =
+          _googleError =
               'Google sign-in is not fully configured yet. Please use email + password.';
         });
         await google.signOut();
@@ -89,7 +92,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (state.error != null) {
         setState(() {
           _googleBusy = false;
-          _inlineError = state.error;
+          _googleError = state.error;
         });
       } else if (state.user != null) {
         context.go('/home');
@@ -99,14 +102,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (e) {
       setState(() {
         _googleBusy = false;
-        _inlineError = 'Could not sign in with Google. ${e.toString()}';
+        _googleError = 'Could not sign in with Google. ${e.toString()}';
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = ref.watch(authStateProvider).isLoading;
+    final authState = ref.watch(authStateProvider);
+    final isLoading = authState.isLoading;
+    // Show whichever error is current: the provider's (email/password
+    // failures) or the local Google-flow error.
+    final displayedError = _googleError ?? authState.error;
 
     return Scaffold(
       body: SafeArea(
@@ -118,38 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 40),
-                // ── Brand row: real logo + wordmark ──────────────────
-                Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'assets/icons/scancourse-logo.png',
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.document_scanner_rounded,
-                              color: AppColors.primary, size: 28),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      AppConstants.appName,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineLarge
-                          ?.copyWith(color: AppColors.primary),
-                    ),
-                  ],
-                ),
+                const BrandHeader(),
                 const SizedBox(height: 40),
                 Text('Welcome back!',
                     style: Theme.of(context).textTheme.headlineLarge),
@@ -158,40 +134,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 24),
 
-                // ── Inline error banner ─────────────────────────────
-                if (_inlineError != null)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.errorLight,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: AppColors.error.withOpacity(0.4)),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.error_outline,
-                            color: AppColors.error, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _inlineError!,
-                            style: const TextStyle(
-                                color: AppColors.error,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => setState(() => _inlineError = null),
-                          child: const Icon(Icons.close,
-                              color: AppColors.error, size: 16),
-                        ),
-                      ],
-                    ),
-                  ),
+                // ── Inline error banner (watches the provider) ───────
+                ErrorBanner(
+                  message: displayedError,
+                  onDismiss: () {
+                    setState(() => _googleError = null);
+                    ref.read(authStateProvider.notifier).clearError();
+                  },
+                ),
 
                 AppTextField(
                   label: 'Email address',

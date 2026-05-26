@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../providers/auth_provider.dart';
+import '../../widgets/common/brand_header.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -65,23 +66,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             children: [
               ScaleTransition(
                 scale: _scale,
-                child: Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.document_scanner_rounded,
-                      size: 56, color: AppColors.primary),
-                ),
+                child: const BrandLogo(size: 96),
               ),
               const SizedBox(height: 28),
               FadeTransition(
