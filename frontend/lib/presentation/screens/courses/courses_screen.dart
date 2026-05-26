@@ -8,6 +8,7 @@ import '../../../providers/course_provider.dart';
 import '../../../providers/aps_provider.dart';
 import '../../../data/models/course_model.dart';
 import '../../widgets/common/remote_logo.dart';
+import '../../widgets/common/bookmark_button.dart';
 
 class CoursesScreen extends ConsumerStatefulWidget {
   const CoursesScreen({super.key});
@@ -519,79 +520,260 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
   }
 }
 
+/// Premium course card shown when the user hasn't scanned their marks
+/// yet (browse mode). Shows institution + APS + level/field — minus the
+/// "Qualify / Subject Gap" verdict (we have no marks to compare against).
 class _BrowseCourseCard extends StatelessWidget {
   final CourseModel course;
   final VoidCallback onTap;
   const _BrowseCourseCard({required this.course, required this.onTap});
 
+  CourseOffering? get _bestOffering {
+    final offerings = course.offerings;
+    if (offerings == null || offerings.isEmpty) return null;
+    // Show the offering with the lowest APS — most accessible entry point.
+    final sorted = [...offerings]
+      ..sort((a, b) => a.minAps.compareTo(b.minAps));
+    return sorted.first;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final offering = _bestOffering;
+    final inst = offering?.institution;
+    final minAps = offering?.minAps ?? course.minAps ?? 0;
+    final fieldLabel = AppConstants.studyFields[course.field] ?? course.field;
+    final levelLabel = course.level.toUpperCase().replaceAll('_', ' ');
+
+    return _CardChrome(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              course.name,
-              style: const TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w700),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Institution row ──────────────────────────────────────────
+          if (inst != null) ...[
+            Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    course.level.toUpperCase().replaceAll('_', ' '),
-                    style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary),
+                RemoteLogo(
+                  url: inst.logoUrl,
+                  fallbackInitial:
+                      inst.shortName?.isNotEmpty == true ? inst.shortName! : inst.name,
+                  size: 36,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        inst.name,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        [inst.city, inst.province]
+                            .where((s) => s != null && s.toString().isNotEmpty)
+                            .join(' · '),
+                        style: const TextStyle(
+                            fontSize: 11, color: AppColors.textSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
-                if (course.minAps != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Text(
-                      'APS ${course.minAps}+',
-                      style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary),
-                    ),
-                  ),
-                Text(
-                  AppConstants.studyFields[course.field] ?? course.field,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary),
+                BookmarkButton(
+                  itemType: 'course',
+                  itemId: course.id,
+                  inactiveColor: AppColors.textHint,
+                  activeColor: AppColors.primary,
                 ),
               ],
             ),
-          ],
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: AppColors.border),
+            const SizedBox(height: 12),
+          ] else
+            // No offerings — still show bookmark and bare layout
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                BookmarkButton(
+                  itemType: 'course',
+                  itemId: course.id,
+                  inactiveColor: AppColors.textHint,
+                  activeColor: AppColors.primary,
+                ),
+              ],
+            ),
+
+          // ── Course name ──────────────────────────────────────────────
+          Text(
+            course.name,
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+                color: AppColors.textPrimary),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+
+          // ── Meta chips: level + field ────────────────────────────────
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _SoftChip(
+                label: levelLabel,
+                background: AppColors.primaryLight,
+                foreground: AppColors.primary,
+              ),
+              _SoftChip(
+                label: fieldLabel,
+                icon: Icons.category_outlined,
+                background: AppColors.surface,
+                foreground: AppColors.textSecondary,
+                bordered: true,
+              ),
+              if (course.durationYears != null)
+                _SoftChip(
+                  label: '${course.durationYears!.toStringAsFixed(0)} yr',
+                  icon: Icons.schedule,
+                  background: AppColors.surface,
+                  foreground: AppColors.textSecondary,
+                  bordered: true,
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // ── APS requirement footer ───────────────────────────────────
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.auto_awesome,
+                        size: 14, color: AppColors.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      minAps > 0 ? 'Min APS  $minAps' : 'Open programme',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              const Text(
+                'View details',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary),
+              ),
+              const SizedBox(width: 2),
+              const Icon(Icons.arrow_forward_rounded,
+                  size: 16, color: AppColors.primary),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Reusable card chrome — soft shadow, rounded, ripple on tap. Used by
+/// every course card so they share the same visual DNA.
+class _CardChrome extends StatelessWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  const _CardChrome({required this.child, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.025),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: child,
         ),
+      ),
+    );
+  }
+}
+
+/// Compact pill used for level / field / duration etc.
+class _SoftChip extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final Color background;
+  final Color foreground;
+  final bool bordered;
+  const _SoftChip({
+    required this.label,
+    required this.background,
+    required this.foreground,
+    this.icon,
+    this.bordered = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+        border: bordered ? Border.all(color: AppColors.border) : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 11, color: foreground),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: foreground,
+                letterSpacing: 0.1),
+          ),
+        ],
       ),
     );
   }
@@ -784,170 +966,237 @@ class _OfferingCard extends StatelessWidget {
     }
   }
 
+  IconData get _categoryIcon {
+    switch (offering.match.category) {
+      case 'eligible':
+        return Icons.check_circle;
+      case 'subject_gap':
+        return Icons.menu_book_outlined;
+      case 'aps_gap':
+        return Icons.trending_up;
+      default:
+        return Icons.info_outline;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final m = offering.match;
-    return GestureDetector(
+    return _CardChrome(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Course name + match badge
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(offering.courseName,
-                      style: Theme.of(context).textTheme.titleMedium),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Institution row + bookmark ───────────────────────────────
+          Row(
+            children: [
+              RemoteLogo(
+                url: offering.institutionLogoUrl,
+                fallbackInitial:
+                    offering.institutionShort?.isNotEmpty == true
+                        ? offering.institutionShort!
+                        : offering.institutionName,
+                size: 36,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      offering.institutionName,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      [offering.institutionCity, offering.institutionProvince]
+                          .where((s) => s != null && s.toString().isNotEmpty)
+                          .join(' · '),
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _categoryColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _categoryLabel,
-                    style: TextStyle(
-                        color: _categoryColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
+              ),
+              BookmarkButton(
+                itemType: 'course',
+                itemId: offering.courseId,
+                inactiveColor: AppColors.textHint,
+                activeColor: AppColors.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: AppColors.border),
+          const SizedBox(height: 12),
 
-            // Institution — logo + bold name + city
-            Row(
+          // ── Course name ──────────────────────────────────────────────
+          Text(
+            offering.courseName,
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+                color: AppColors.textPrimary),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+
+          // ── Meta chips ───────────────────────────────────────────────
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _SoftChip(
+                label: AppConstants.studyFields[offering.courseField] ??
+                    offering.courseField,
+                icon: Icons.category_outlined,
+                background: AppColors.surface,
+                foreground: AppColors.textSecondary,
+                bordered: true,
+              ),
+              if (offering.courseDurationYears != null)
+                _SoftChip(
+                  label: '${offering.courseDurationYears!.toStringAsFixed(0)} yr',
+                  icon: Icons.schedule,
+                  background: AppColors.surface,
+                  foreground: AppColors.textSecondary,
+                  bordered: true,
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // ── Big verdict banner ───────────────────────────────────────
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: _categoryColor.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _categoryColor.withOpacity(0.35)),
+            ),
+            child: Row(
               children: [
-                RemoteLogo(
-                  url: offering.institutionLogoUrl,
-                  fallbackInitial: offering.institutionShort?.isNotEmpty == true
-                      ? offering.institutionShort!
-                      : offering.institutionName,
-                  size: 32,
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: _categoryColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(_categoryIcon, size: 16, color: Colors.white),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: RichText(
-                    overflow: TextOverflow.ellipsis,
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: offering.institutionName,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        if (offering.institutionCity != null)
-                          TextSpan(
-                            text: ' · ${offering.institutionCity}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                      ],
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _categoryLabel,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: _categoryColor),
+                      ),
+                      Text(
+                        _verdictSubtitle(m),
+                        style: const TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.textSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
+                      horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.border),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _categoryColor.withOpacity(0.4)),
                   ),
-                  child: Text(offering.institutionProvince,
-                      style: const TextStyle(
-                          fontSize: 10,
-                          color: AppColors.textSecondary)),
+                  child: Text(
+                    'APS ${offering.minAps}',
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: _categoryColor),
+                  ),
                 ),
               ],
             ),
+          ),
+
+          // ── Subject gap detail (only when relevant) ──────────────────
+          if (m.missingSubjects.isNotEmpty ||
+              m.lowSubjects.isNotEmpty ||
+              m.mathsLitBlocked) ...[
             const SizedBox(height: 10),
-
-            // Info chips row
-            Row(
-              children: [
-                _InfoChip(
-                    icon: Icons.auto_awesome,
-                    label: 'APS ${offering.minAps}'),
-                const SizedBox(width: 6),
-                _InfoChip(
-                    icon: Icons.schedule,
-                    label:
-                        '${offering.courseDurationYears?.toStringAsFixed(0) ?? "?"} yr'),
-                const SizedBox(width: 6),
-                _InfoChip(
-                  icon: Icons.category_outlined,
-                  label: AppConstants.studyFields[offering.courseField] ??
-                      offering.courseField,
-                  maxWidth: 110,
+            if (m.mathsLitBlocked)
+              _GapRow(
+                  icon: Icons.block,
+                  label:
+                      'Requires Pure Maths (Maths Lit not accepted)',
+                  color: AppColors.error),
+            ...m.missingSubjects.take(2).map((s) => _GapRow(
+                  icon: Icons.add_circle_outline,
+                  label:
+                      'Needs ${s['subject']} (level ${s['required_level']})',
+                  color: AppColors.subjectGap,
+                )),
+            ...m.lowSubjects.take(2).map((s) => _GapRow(
+                  icon: Icons.trending_up,
+                  label:
+                      '${s['subject']}: level ${s['student_level']} → need ${s['required_level']}',
+                  color: AppColors.apsGap,
+                )),
+            if ((m.missingSubjects.length + m.lowSubjects.length) > 4)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '+${m.missingSubjects.length + m.lowSubjects.length - 4} more requirement(s)',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textHint),
                 ),
-                const Spacer(),
-                if (m.category == 'eligible' && m.apsSurplus > 0)
-                  Text('+${m.apsSurplus} APS',
-                      style: const TextStyle(
-                          color: AppColors.eligible,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600))
-                else if (m.category == 'aps_gap')
-                  Text('${m.apsSurplus} APS',
-                      style: const TextStyle(
-                          color: AppColors.apsGap,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600)),
-              ],
-            ),
-
-            // Subject gap detail
-            if (m.missingSubjects.isNotEmpty ||
-                m.lowSubjects.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              const Divider(height: 1),
-              const SizedBox(height: 8),
-              if (m.mathsLitBlocked)
-                _GapRow(
-                    icon: Icons.block,
-                    label:
-                        'Requires Pure Maths (Maths Lit not accepted)',
-                    color: AppColors.error),
-              ...m.missingSubjects.take(2).map((s) => _GapRow(
-                    icon: Icons.add_circle_outline,
-                    label:
-                        'Needs ${s['subject']} (level ${s['required_level']})',
-                    color: AppColors.subjectGap,
-                  )),
-              ...m.lowSubjects.take(2).map((s) => _GapRow(
-                    icon: Icons.trending_up,
-                    label:
-                        '${s['subject']}: level ${s['student_level']} → need ${s['required_level']}',
-                    color: AppColors.apsGap,
-                  )),
-              if ((m.missingSubjects.length + m.lowSubjects.length) > 4)
-                Text(
-                  '+${m.missingSubjects.length + m.lowSubjects.length - 4} more requirements',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-            ],
+              ),
           ],
-        ),
+        ],
       ),
     );
+  }
+
+  /// Plain-language tagline shown under the big "Qualify / Subject Gap"
+  /// banner. We feed users the most actionable summary we can derive
+  /// from the match payload without needing an AI call.
+  String _verdictSubtitle(dynamic m) {
+    final cat = m.category as String;
+    final surplus = m.apsSurplus as int;
+    if (cat == 'eligible') {
+      return surplus > 0
+          ? 'You\'re above the cutoff by $surplus APS'
+          : 'Your APS meets the requirement';
+    }
+    if (cat == 'aps_gap') {
+      return 'Short ${surplus.abs()} APS for entry';
+    }
+    if (cat == 'subject_gap') {
+      final n = (m.missingSubjects as List).length +
+          (m.lowSubjects as List).length;
+      return n == 1
+          ? '1 subject requirement not yet met'
+          : '$n subject requirements not yet met';
+    }
+    return 'See details';
   }
 }
 
