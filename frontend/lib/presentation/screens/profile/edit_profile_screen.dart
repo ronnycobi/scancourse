@@ -10,6 +10,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/error_banner.dart';
 import '../../widgets/common/loading_button.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
@@ -35,6 +36,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   File? _pickedImage;
   bool _isSaving = false;
+  String? _error;
 
   @override
   void initState() {
@@ -201,7 +203,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _save() async {
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
     try {
       final data = <String, dynamic>{};
 
@@ -210,20 +215,30 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       final phone = _phoneCtrl.text.trim();
       final dreamCareer = _dreamCareerCtrl.text.trim();
 
+      if (firstName.isEmpty) {
+        setState(() {
+          _isSaving = false;
+          _error = 'First name can\'t be empty.';
+        });
+        return;
+      }
+      if (lastName.isEmpty) {
+        setState(() {
+          _isSaving = false;
+          _error = 'Last name can\'t be empty.';
+        });
+        return;
+      }
+
       data['first_name'] = firstName;
       data['last_name'] = lastName;
       if (phone.isNotEmpty) {
         final digits = phone.replaceAll(RegExp(r'\D'), '');
         if (digits.length != 9) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Phone number must be 9 digits after +27.'),
-                backgroundColor: AppColors.error,
-              ),
-            );
-          }
-          setState(() => _isSaving = false);
+          setState(() {
+            _isSaving = false;
+            _error = 'Phone number must be 9 digits after +27 (e.g. 812345678).';
+          });
           return;
         }
         data['phone_number'] = '+27$digits';
@@ -250,12 +265,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ref.read(authStateProvider).error ?? 'Failed to save profile.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        setState(() {
+          _error = ref.read(authStateProvider).error ??
+              'Could not save your profile. Please try again.';
+        });
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -282,6 +295,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: ErrorBanner(
+                  message: _error,
+                  onDismiss: () => setState(() => _error = null),
+                ),
+              ),
             // Avatar
             Center(
               child: Padding(

@@ -17,4 +17,5 @@ urlpatterns = [
     path('google/', views.GoogleAuthView.as_view(), name='google-auth'),
     path('password-reset/', views.PasswordResetRequestView.as_view(), name='password-reset'),
     path('password-reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('change-password/', views.ChangePasswordView.as_view(), name='change-password'),
 ]

@@ -215,3 +215,47 @@ class PasswordResetConfirmView(APIView):
         user.set_password(new_password)
         user.save()
         return Response({'detail': 'Password reset. You can log in now.'})
+
+
+class ChangePasswordView(APIView):
+    """
+    POST /auth/change-password/  body: {current_password, new_password}
+
+    Authenticated endpoint — the user must prove they know their current
+    password before they can set a new one. This is the safer pattern for
+    a signed-in user changing their password (vs the reset-by-email flow).
+    """
+    throttle_scope = 'password_reset'  # reuse the existing tight bucket
+
+    def post(self, request):
+        current = request.data.get('current_password') or ''
+        new_password = request.data.get('new_password') or ''
+        if not current or not new_password:
+            return Response(
+                {'detail': 'current_password and new_password are required.'},
+                status=400,
+            )
+        user = request.user
+        if not user.check_password(current):
+            return Response(
+                {'current_password': 'Current password is incorrect.'},
+                status=400,
+            )
+        if current == new_password:
+            return Response(
+                {'new_password': 'New password must be different from the current one.'},
+                status=400,
+            )
+        # Run the full Django password validator suite (length, common,
+        # numeric, similarity, letter+digit) so the message matches what
+        # registration enforces.
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as e:
+            return Response({'new_password': list(e.messages)}, status=400)
+
+        user.set_password(new_password)
+        user.save()
+        return Response({'detail': 'Password changed.'})

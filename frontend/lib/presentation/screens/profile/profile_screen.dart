@@ -207,6 +207,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     // Language picker disabled — English-only build for now.
                     ListTile(
+                      leading: const Icon(Icons.lock_outline,
+                          color: AppColors.primary),
+                      title: const Text('Change Password'),
+                      subtitle: const Text(
+                          'Update your sign-in password',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () => context.push('/change-password'),
+                    ),
+                    ListTile(
                       leading: const Icon(Icons.psychology_alt_outlined,
                           color: AppColors.primary),
                       title: const Text('My Improvement Path'),
