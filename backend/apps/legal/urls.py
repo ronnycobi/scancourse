@@ -6,6 +6,7 @@ urlpatterns = [
     path('privacy/', views.PrivacyPolicyView.as_view(), name='privacy-policy'),
     path('terms/', views.TermsOfServiceView.as_view(), name='terms-of-service'),
     path('cookies/', views.CookiePolicyView.as_view(), name='cookie-policy'),
+    path('contact/', views.ContactMessageAPIView.as_view(), name='contact-message'),
 
     # POPIA: consent
     path('consent/', views.RecordConsentView.as_view(), name='record-consent'),

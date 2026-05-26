@@ -43,6 +43,8 @@ urlpatterns = [
     path('legal/acceptable-use/', legal_views.acceptable_use_page, name='legal-acceptable-use-page'),
     path('legal/about/', legal_views.about_page, name='legal-about-page'),
     path('legal/disclaimer/', legal_views.disclaimer_page, name='legal-disclaimer-page'),
+    # /legal/contact/ accepts both GET and POST so the form on the page
+    # can submit to itself.
     path('legal/contact/', legal_views.contact_page, name='legal-contact-page'),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_v1)),

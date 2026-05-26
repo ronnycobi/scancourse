@@ -180,10 +180,33 @@ class _SavedTab extends ConsumerWidget {
               child: Icon(_icon, color: AppColors.primary, size: 20),
             ),
             title: Text(
-                '${itemType[0].toUpperCase()}${itemType.substring(1)} #${item.itemId}'),
-            subtitle: item.savedAt != null
-                ? Text('Saved ${item.savedAt!.substring(0, 10)}')
-                : null,
+              item.itemName?.isNotEmpty == true
+                  ? item.itemName!
+                  : '${itemType[0].toUpperCase()}${itemType.substring(1)} #${item.itemId}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (item.itemSubtitle?.isNotEmpty == true)
+                  Text(
+                    item.itemSubtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                if (item.savedAt != null)
+                  Text(
+                    'Saved ${item.savedAt!.substring(0, 10)}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textHint),
+                  ),
+              ],
+            ),
             trailing: const Icon(Icons.arrow_forward_ios, size: 14),
             onTap: () => context.push('$_route/${item.itemId}'),
           ),

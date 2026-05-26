@@ -31,6 +31,7 @@ import '../../presentation/screens/notifications/notifications_screen.dart';
 import '../../presentation/screens/saved/saved_items_screen.dart';
 import '../../presentation/screens/applications/applications_screen.dart';
 import '../../presentation/screens/legal/legal_screen.dart';
+import '../../presentation/screens/legal/contact_form_screen.dart';
 import '../../presentation/screens/home/main_shell.dart';
 import '../../providers/auth_provider.dart';
 
@@ -117,7 +118,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/applications', builder: (_, __) => const ApplicationsScreen()),
       GoRoute(
         path: '/legal/:doc',
-        builder: (_, state) => LegalScreen(docKey: state.pathParameters['doc']!),
+        builder: (_, state) {
+          final doc = state.pathParameters['doc']!;
+          // Contact gets the interactive form, not the static markdown.
+          if (doc == 'contact') return const ContactFormScreen();
+          return LegalScreen(docKey: doc);
+        },
       ),
       GoRoute(path: '/motivation-letter', builder: (_, __) => const MotivationLetterScreen()),
       GoRoute(

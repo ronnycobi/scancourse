@@ -49,7 +49,102 @@ def cookies_page(request):       return _legal_page(request, 'cookies')
 def acceptable_use_page(request): return _legal_page(request, 'acceptable-use')
 def about_page(request):         return _legal_page(request, 'about')
 def disclaimer_page(request):    return _legal_page(request, 'disclaimer')
-def contact_page(request):       return _legal_page(request, 'contact')
+def contact_page(request):
+    """Contact page with a built-in form that POSTs to the same URL."""
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from django.core.mail import send_mail
+    from django.conf import settings as dj_settings
+    if request.method == 'POST':
+        name = (request.POST.get('name') or '').strip()[:120]
+        email = (request.POST.get('email') or '').strip()[:200]
+        subject = (request.POST.get('subject') or '').strip()[:200] or 'New contact form'
+        message_text = (request.POST.get('message') or '').strip()[:5000]
+        # Simple validation — anything more sophisticated belongs in a form class.
+        errors = []
+        if not name:
+            errors.append('Please enter your name.')
+        if not email or '@' not in email or '.' not in email:
+            errors.append('Please enter a valid email.')
+        if not message_text:
+            errors.append('Please write a message.')
+        if errors:
+            return render(request, 'contact_page.html', {
+                'errors': errors,
+                'form': {'name': name, 'email': email,
+                         'subject': subject, 'message': message_text},
+            })
+        try:
+            send_mail(
+                subject=f'[Scancourse contact] {subject}',
+                message=(
+                    f'From: {name} <{email}>\n\n'
+                    f'Subject: {subject}\n\n'
+                    f'{message_text}\n'
+                ),
+                from_email=getattr(
+                    dj_settings, 'DEFAULT_FROM_EMAIL', 'info@scancourse.co.za'),
+                recipient_list=['info@scancourse.co.za'],
+                fail_silently=False,
+            )
+            return render(request, 'contact_page.html', {'sent': True})
+        except Exception as e:
+            logger.warning('Contact form send failed: %s', e)
+            return render(request, 'contact_page.html', {
+                'errors': ['Sorry, something went wrong on our side. '
+                           'Please email info@scancourse.co.za directly.'],
+                'form': {'name': name, 'email': email,
+                         'subject': subject, 'message': message_text},
+            })
+    return render(request, 'contact_page.html', {})
+
+
+class ContactMessageAPIView(APIView):
+    """POST /api/v1/legal/contact/  body: {name, email, subject, message}
+
+    Public endpoint (anyone can reach out, no auth needed). Throttled to
+    prevent abuse. Emails the submission to info@scancourse.co.za.
+    """
+    permission_classes = (permissions.AllowAny,)
+    throttle_scope = 'password_reset'  # reuse the 5/hour bucket
+
+    def post(self, request):
+        name = (request.data.get('name') or '').strip()[:120]
+        email = (request.data.get('email') or '').strip()[:200]
+        subject = (request.data.get('subject') or '').strip()[:200] or 'New contact form'
+        message_text = (request.data.get('message') or '').strip()[:5000]
+        errors = {}
+        if not name:
+            errors['name'] = 'Please enter your name.'
+        if not email or '@' not in email or '.' not in email:
+            errors['email'] = 'Please enter a valid email address.'
+        if not message_text:
+            errors['message'] = 'Please write a message.'
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from django.core.mail import send_mail
+            from django.conf import settings as dj_settings
+            send_mail(
+                subject=f'[Scancourse contact] {subject}',
+                message=(
+                    f'From: {name} <{email}>\n\n'
+                    f'Subject: {subject}\n\n'
+                    f'{message_text}\n'
+                ),
+                from_email=getattr(
+                    dj_settings, 'DEFAULT_FROM_EMAIL', 'info@scancourse.co.za'),
+                recipient_list=['info@scancourse.co.za'],
+                fail_silently=False,
+            )
+            return Response({'detail': 'Message sent. We\'ll reply within 2 business days.'})
+        except Exception as e:
+            logger.warning('Contact form (API) send failed: %s', e)
+            return Response(
+                {'detail': 'Sorry, we couldn\'t send your message right now. '
+                           'Please email info@scancourse.co.za directly.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
