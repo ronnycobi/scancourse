@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 
-/// Generic legal-document viewer. Accepts a doc key (terms/privacy/about/
-/// acceptable-use) and renders the corresponding static text.
+/// Generic legal-document viewer. Accepts a doc key and renders the
+/// corresponding static text.
+///
+/// IMPORTANT: The content of every doc below MUST stay identical to the
+/// canonical version in `backend/apps/legal/policies.py`. Bump
+/// `_effectiveDate` here in lockstep whenever the backend's
+/// `EFFECTIVE_DATE` changes.
 class LegalScreen extends StatelessWidget {
   final String docKey;
 
@@ -15,6 +20,8 @@ class LegalScreen extends StatelessWidget {
         return 'Terms & Conditions';
       case 'privacy':
         return 'Privacy Policy';
+      case 'cookies':
+        return 'Cookie Policy';
       case 'acceptable-use':
         return 'Acceptable Use Policy';
       case 'about':
@@ -34,6 +41,8 @@ class LegalScreen extends StatelessWidget {
         return _terms;
       case 'privacy':
         return _privacy;
+      case 'cookies':
+        return _cookies;
       case 'acceptable-use':
         return _acceptableUse;
       case 'about':
@@ -104,7 +113,7 @@ class _RichLegalText extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: AppColors.primary)),
               Expanded(
-                child: Text(trimmed.substring(2),
+                child: Text(_stripBold(trimmed.substring(2)),
                     style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.textPrimary,
@@ -113,19 +122,41 @@ class _RichLegalText extends StatelessWidget {
             ],
           ),
         ));
-      } else if (trimmed.startsWith('_') && trimmed.endsWith('_')) {
+      } else if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+        // "Effective: ..." line at the top of each doc
         spans.add(Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(trimmed.substring(1, trimmed.length - 1),
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+              trimmed.substring(2, trimmed.length - 2),
               style: const TextStyle(
                   fontSize: 12,
-                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.textSecondary)),
         ));
+      } else if (trimmed.startsWith('|')) {
+        // Skip raw table rows — the parser doesn't render tables but we
+        // still want the content to flow if the table is present.
+        // (Cookie policy has one — degrade to plain readable text.)
+        final cleaned = trimmed
+            .replaceAll(RegExp(r'^\||\|$'), '')
+            .replaceAll('|', '  ·  ')
+            .replaceAll(RegExp(r'-{3,}'), '')
+            .trim();
+        if (cleaned.isEmpty) {
+          spans.add(const SizedBox(height: 2));
+        } else {
+          spans.add(Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(cleaned,
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary)),
+          ));
+        }
       } else {
         spans.add(Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Text(trimmed,
+          child: Text(_stripBold(trimmed),
               style: const TextStyle(
                   fontSize: 13,
                   color: AppColors.textPrimary,
@@ -133,74 +164,31 @@ class _RichLegalText extends StatelessWidget {
         ));
       }
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: spans);
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start, children: spans);
   }
+
+  /// Strips **markdown bold markers**, since the simple parser doesn't
+  /// support inline rich text. The bold word remains, just unbolded.
+  String _stripBold(String s) => s.replaceAll('**', '');
 }
 
 // ── Documents ───────────────────────────────────────────────────────────────
+//
+// Mirror of backend/apps/legal/policies.py — KEEP IN SYNC.
+// Version 1.0 · Effective 26 May 2026.
 
-const String _lastUpdated = '_Last updated: 18 May 2026_';
-
-const _terms = '''
-# Terms & Conditions
-
-$_lastUpdated
-
-Welcome to Scancourse. By creating an account or using this app you agree to these Terms.
-
-## 1. Who We Are
-Scancourse is a South African study-pathways platform that helps prospective students discover courses, bursaries and student accommodation. We are not affiliated with NSFAS, any university, or any bursary provider unless we explicitly say so.
-
-## 2. Your Account
-- You must be 13 years or older to create an account.
-- Information you provide (name, email, marks, dream career) must be accurate.
-- You are responsible for keeping your password safe. We cannot access it on your behalf.
-- One account per person. Don't share accounts.
-
-## 3. How the App Works
-- The APS calculator gives an estimate. Universities calculate their own APS — always check directly with the institution.
-- Course recommendations are guidance, not a guarantee of admission.
-- Bursary listings, deadlines and eligibility text are best-effort summaries. Always verify on the official bursary provider's site before applying.
-
-## 4. What You Can Do
-- Use Scancourse for personal study research.
-- Apply to courses and bursaries via the official links we provide.
-- Save items for your own reference.
-
-## 5. What You Can't Do
-- Scrape, copy or republish our data.
-- Pretend to be someone else, or submit false marks.
-- Use the app to harass other users or providers.
-- Try to break our systems.
-
-## 6. Third-Party Links
-We link to university and bursary application sites. We don't control those sites, and we're not responsible for what happens once you leave Scancourse.
-
-## 7. Changes to These Terms
-We may update these Terms. We'll show a notice in the app when we do. Continued use after a change means you accept the new Terms.
-
-## 8. Termination
-We can suspend or close accounts that violate these Terms. You can delete your own account any time from the Profile screen.
-
-## 9. Limitation of Liability
-Scancourse is provided "as is". We can't guarantee that the information is complete, current or error-free. Use the app to inform your choices, not to replace official advice from universities, bursary providers or career counsellors.
-
-## 10. Governing Law
-These Terms are governed by South African law. Disputes will be resolved in South African courts.
-
-## 11. Contact
-For questions about these Terms: info@scancourse.co.za
-Website: https://scancourse.co.za
-''';
+const String _header = '**Effective: 26 May 2026 · Version 1.0**';
 
 const _privacy = '''
 # Privacy Policy
 
-$_lastUpdated
+$_header
 
 This policy explains what personal information Scancourse collects, why we collect it, and what we do with it. We aim to comply with the Protection of Personal Information Act, 2013 (POPIA).
 
 ## Information We Collect
+
 - **Account info**: name, email, password (hashed), phone number, grade, province.
 - **Academic info**: subjects, marks, calculated APS — you can delete these any time.
 - **Profile preferences**: preferred field, dream career, preferred study province.
@@ -209,65 +197,185 @@ This policy explains what personal information Scancourse collects, why we colle
 - **Usage signals**: course views (used to power "Similar students also viewed").
 
 ## Why We Collect It
+
 - Personalised course and bursary recommendations
 - Save your progress between sessions
 - Improve the app over time
 - Send important notifications (deadline reminders, application status)
 
 ## What We Do NOT Do
+
 - We do not sell your personal information to anyone.
 - We do not share your marks with universities or bursary providers without your consent.
 - We do not use your data for advertising profiling.
 
 ## Who Sees Your Data
+
 - You — always, via the Profile screen.
 - Scancourse staff — only when troubleshooting an issue you've reported.
 - Service providers we use to run the app (hosting, email, error monitoring) under strict confidentiality.
 
 ## Your Rights Under POPIA
+
 You can at any time:
+
 - Access the personal information we hold about you.
 - Correct or update it via Edit Profile.
-- Delete your account and all associated data.
+- Delete your account and all associated data (30-day grace period).
 - Object to processing (we'll explain the consequences).
-- Lodge a complaint with the Information Regulator (inforegulator.org.za).
+- Lodge a complaint with the Information Regulator (https://inforegulator.org.za).
+
+To exercise any right, email info@scancourse.co.za or use the in-app Settings → Privacy & Data section.
 
 ## Data Retention
+
 - Active accounts: we keep your data while your account is open.
 - Deleted accounts: we erase personal data within 30 days. Aggregated, anonymised statistics may be retained.
 
 ## Security
+
 - Passwords are stored hashed (we never see them in plain text).
 - Tokens are stored in your device's secure storage.
 - API traffic uses HTTPS in production.
+- Access logs maintained for sensitive operations.
 
 ## Children's Privacy
+
 Scancourse is intended for students 13 and older. If we learn that we have collected data on a child under 13 without verifiable parental consent, we will delete it.
 
 ## Changes to This Policy
+
 If we make a material change, we'll notify you in-app before it takes effect.
 
 ## Contact
+
 - Privacy questions: info@scancourse.co.za
 - Information Officer: info@scancourse.co.za
 - Website: https://scancourse.co.za
-- Information Regulator of South Africa: inforegulator.org.za
+- Information Regulator of South Africa: https://inforegulator.org.za
+''';
+
+const _terms = '''
+# Terms & Conditions
+
+$_header
+
+By using Scancourse you agree to these terms. If you don't agree, please don't use the app.
+
+## 1. Who We Are
+
+Scancourse is a South African app helping Grade 11 and 12 learners find courses, bursaries and accommodation, calculate their APS, and plan their post-school journey.
+
+## 2. Your Account
+
+- You must provide accurate information about yourself.
+- You're responsible for keeping your password secure.
+- One person, one account.
+- Minimum age: 13 (under-18s should have a parent or guardian's permission).
+
+## 3. What We Do
+
+We provide:
+
+- APS calculation from report cards (OCR or manual entry).
+- Course and institution matching.
+- Bursary discovery.
+- Accommodation listings.
+- AI-powered career guidance.
+
+## 4. What We Don't Do
+
+- We are not a university or educational institution.
+- We don't guarantee admission to any course.
+- Course requirements and bursary deadlines come from public sources and may be outdated — always verify with the institution directly.
+- We don't provide legal, medical, or financial advice.
+
+## 5. Acceptable Use
+
+You agree NOT to:
+
+- Misrepresent your identity or marks.
+- Upload fraudulent documents.
+- Scrape or copy our content for commercial use.
+- Try to break our security.
+- Pretend to be a different person, or create multiple accounts.
+
+## 6. AI Features
+
+Our AI assistant and AI-powered "Why didn't I qualify?" / improvement plans use third-party language models. Replies are AI-generated and may be inaccurate. Always verify important information with primary sources (institution websites, NSFAS, SAQA).
+
+## 7. Third-Party Links
+
+We link to university and bursary application sites. We don't control those sites, and we're not responsible for what happens once you leave Scancourse.
+
+## 8. Changes to These Terms
+
+We may update these Terms. We'll show a notice in the app when we do. Continued use after a change means you accept the new Terms.
+
+## 9. Termination
+
+We can suspend or close accounts that violate these Terms. You can delete your own account at any time from Settings → Privacy & Data.
+
+## 10. Limitation of Liability
+
+Scancourse is provided "as is". We can't guarantee that the information is complete, current or error-free. Use the app to inform your choices, not to replace official advice from universities, bursary providers or career counsellors.
+
+## 11. Governing Law
+
+These Terms are governed by South African law. Disputes will be resolved in South African courts.
+
+## 12. Contact
+
+For questions about these Terms:
+
+- info@scancourse.co.za
+- Website: https://scancourse.co.za
+''';
+
+const _cookies = '''
+# Cookie Policy
+
+$_header
+
+Scancourse uses cookies and similar technologies to make our service work and to improve it.
+
+## What We Use
+
+- sessionid — Keeps you signed in on the website (session-long).
+- csrftoken — Security (prevents cross-site attacks), kept for 1 year.
+- _ga — Anonymous usage stats (if analytics is enabled), kept for 2 years.
+
+## Your Choices
+
+You can disable analytics cookies in Settings → Privacy at any time. Essential cookies (login, security) cannot be disabled because the app won't work without them.
+
+Most browsers also let you block cookies entirely — though this may break functionality.
+
+## Mobile App
+
+The Scancourse mobile app does not use cookies. It uses secure device storage to keep you signed in.
+
+## Contact
+
+Questions? info@scancourse.co.za
 ''';
 
 const _acceptableUse = '''
 # Acceptable Use Policy
 
-$_lastUpdated
+$_header
 
 To keep Scancourse a useful, respectful space for everyone, please follow these rules.
 
 ## Do
+
 - Use Scancourse to research your study options.
 - Provide accurate information about your marks and preferences.
 - Report bugs or wrong data (e.g. wrong bursary deadline) so we can fix them.
 - Keep your account credentials private.
 
 ## Don't
+
 - Scrape, mass-download or republish our data.
 - Submit false marks to game course matching.
 - Pretend to be a different person, or create multiple accounts.
@@ -277,40 +385,49 @@ To keep Scancourse a useful, respectful space for everyone, please follow these 
 - Use Scancourse for any unlawful purpose under South African law.
 
 ## Reporting Violations
-If you notice another user breaking these rules, email info@scancourse.co.za. Include screenshots and the user's email/username if you have it.
+
+If you notice another user breaking these rules, email info@scancourse.co.za. Include screenshots and the user's email or username if you have it.
 
 ## Consequences
+
 Violations may result in your account being suspended or permanently closed. Serious violations (fraud, identity theft, computer-misuse offences) will be reported to law-enforcement.
 ''';
 
 const _about = '''
 # About Scancourse
 
+$_header
+
 Scancourse helps Grade 11 and 12 learners in South Africa figure out:
-- Which APS they currently have
-- Which courses they qualify for
-- Which bursaries they should apply to
-- Where to live near their chosen university
+
+- Which APS they currently have.
+- Which courses they qualify for.
+- Which bursaries they should apply to.
+- Where to live near their chosen university.
 
 We built Scancourse because applying for university in South Africa is stressful, fragmented across dozens of websites, and full of jargon. We pull it all into one place.
 
 ## What's in the App
-- **APS Calculator** — scan your report card or type marks in
-- **Courses** — all 1,600+ active programmes across all 25 SA public universities
-- **Bursaries** — 110+ NSFAS, government, corporate, foundation and international scholarships
-- **Accommodation** — NSFAS-accredited residences near each university
-- **Applications tracker** — manage where you've applied and the deadlines
-- **AI Assistant** — help with motivation letters and study questions
+
+- APS Calculator — scan your report card or type marks in.
+- Courses — 1,600+ active programmes across all 25 SA public universities.
+- Bursaries — 110+ NSFAS, government, corporate, foundation and international scholarships.
+- Accommodation — NSFAS-accredited residences near each university.
+- Applications tracker — manage where you've applied and the deadlines.
+- AI Assistant — help with motivation letters and study questions.
 
 ## What Scancourse Is Not
+
 - We are not a university. We don't admit students.
 - We are not NSFAS, the Department of Education, or any bursary provider.
 - We don't guarantee admission — only the institution can do that.
 
 ## Who Built This
+
 Scancourse is built by a small team in South Africa. If you find a bug or want to suggest something, email info@scancourse.co.za or visit https://scancourse.co.za.
 
 ## Open About Limitations
+
 - Bursary deadlines move every year. We update them, but always verify with the provider.
 - Course data is scraped from public university sites. Some entries may be incomplete.
 - The APS calculator gives an estimate — each university computes its own.
@@ -319,42 +436,57 @@ Scancourse is built by a small team in South Africa. If you find a bug or want t
 const _disclaimer = '''
 # Disclaimer
 
-$_lastUpdated
+$_header
 
 ## Information Accuracy
-Scancourse aggregates publicly-available information about universities, courses, bursaries and student accommodation in South Africa. While we work hard to keep it accurate and current, we make **no guarantees** about completeness, currency or fitness for any specific purpose.
+
+Scancourse aggregates publicly-available information about universities, courses, bursaries and student accommodation in South Africa. While we work hard to keep it accurate and current, we make no guarantees about completeness, currency or fitness for any specific purpose.
 
 ## Always Verify Before You Apply
-- **Course details, fees and entry requirements**: confirm with the university directly.
-- **Bursary deadlines and eligibility**: confirm with the bursary provider before applying.
-- **Accommodation listings and prices**: confirm with the residence operator.
+
+- Course details, fees and entry requirements: confirm with the university directly.
+- Bursary deadlines and eligibility: confirm with the bursary provider before applying.
+- Accommodation listings and prices: confirm with the residence operator.
 
 ## Not Financial or Legal Advice
+
 Nothing in Scancourse is financial, legal, or career advice. For loans, contracts, or major decisions, consult a qualified advisor.
 
 ## Third-Party Sites
+
 We link to external university and bursary application portals. We don't control those sites. We're not responsible for content, accuracy, security or any consequences of using them.
 
 ## Match Quality
-- "Qualify" badges are based on the structured data we have (your APS, subject marks, preferred field). We can't verify household income, race-based eligibility, citizenship requirements, or special clauses — always read the full T&Cs on the provider's site.
+
+"Qualify" badges are based on the structured data we have (your APS, subject marks, preferred field). We can't verify household income, race-based eligibility, citizenship requirements, or special clauses — always read the full T&Cs on the provider's site.
+
+## AI-Generated Content
+
+Insights generated by our AI features (improvement plan, course gap explainer, motivation letter helper) are estimates based on language models. They may be inaccurate. Always verify with the institution.
 
 ## Liability
+
 To the maximum extent permitted by South African law, Scancourse and its operators are not liable for any loss, damage or missed opportunity arising from your use of the app.
 
 ## Reporting Errors
+
 Found a wrong deadline, missing bursary, or out-of-date course? Email info@scancourse.co.za and we'll fix it.
 ''';
 
 const _contact = '''
 # Contact Us
 
+$_header
+
 We'd love to hear from you — whether it's a bug report, a feature request, a question about your APS, or feedback on the app.
 
 ## General Enquiries
-**Email:** info@scancourse.co.za
-**Website:** https://scancourse.co.za
+
+- Email: info@scancourse.co.za
+- Website: https://scancourse.co.za
 
 ## What to Email Us About
+
 - Account or login issues
 - Wrong course or bursary information you've spotted
 - Bug reports (please include your phone model + what happened)
@@ -363,10 +495,12 @@ We'd love to hear from you — whether it's a bug report, a feature request, a q
 - Reporting another user who's breaking the rules
 
 ## Response Time
+
 We're a small team. We try to reply within 2 business days. For urgent admissions questions, please contact the relevant university directly — we can't process applications on their behalf.
 
 ## Looking for Something Else?
-- **About the app:** see the *About Scancourse* page.
-- **How we handle your data:** see the *Privacy Policy*.
-- **What the app can and can't promise:** see the *Disclaimer*.
+
+- About the app: see the About Scancourse page.
+- How we handle your data: see the Privacy Policy.
+- What the app can and can't promise: see the Disclaimer.
 ''';

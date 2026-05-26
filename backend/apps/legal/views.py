@@ -12,7 +12,10 @@ from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import ConsentRecord, DataExportRequest, AccountDeletionRequest
-from .policies import PRIVACY_POLICY, TERMS_OF_SERVICE, COOKIE_POLICY
+from .policies import (
+    PRIVACY_POLICY, TERMS_OF_SERVICE, COOKIE_POLICY,
+    ACCEPTABLE_USE, ABOUT, DISCLAIMER, CONTACT, ALL_DOCS,
+)
 
 
 # ════════════════════════════════════════════════════════════════
@@ -21,44 +24,32 @@ from .policies import PRIVACY_POLICY, TERMS_OF_SERVICE, COOKIE_POLICY
 # styled like the landing page. Lives at /legal/privacy/ etc.
 # ════════════════════════════════════════════════════════════════
 
-_PAGE_TITLES = {
-    'privacy': 'Privacy Policy',
-    'terms': 'Terms of Service',
-    'cookies': 'Cookie Policy',
-}
-
-_PAGE_DOCS = {
-    'privacy': PRIVACY_POLICY,
-    'terms': TERMS_OF_SERVICE,
-    'cookies': COOKIE_POLICY,
-}
-
-
 def _legal_page(request, slug):
-    import markdown as md  # lazy import — only the public legal pages need it
-    doc = _PAGE_DOCS[slug]
+    """Renders any of the 7 legal docs as a styled HTML page."""
+    import markdown as md  # lazy import
+    if slug not in ALL_DOCS:
+        from django.http import Http404
+        raise Http404(f'Unknown legal doc: {slug}')
+    title, doc = ALL_DOCS[slug]
     html = md.markdown(
         doc['content'],
         extensions=['extra', 'tables', 'sane_lists', 'nl2br'],
     )
     return render(request, 'legal_page.html', {
-        'title': _PAGE_TITLES[slug],
+        'title': title,
         'version': doc['version'],
         'effective_date': doc['effective_date'],
         'html_content': html,
     })
 
 
-def privacy_page(request):
-    return _legal_page(request, 'privacy')
-
-
-def terms_page(request):
-    return _legal_page(request, 'terms')
-
-
-def cookies_page(request):
-    return _legal_page(request, 'cookies')
+def privacy_page(request):       return _legal_page(request, 'privacy')
+def terms_page(request):         return _legal_page(request, 'terms')
+def cookies_page(request):       return _legal_page(request, 'cookies')
+def acceptable_use_page(request): return _legal_page(request, 'acceptable-use')
+def about_page(request):         return _legal_page(request, 'about')
+def disclaimer_page(request):    return _legal_page(request, 'disclaimer')
+def contact_page(request):       return _legal_page(request, 'contact')
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
