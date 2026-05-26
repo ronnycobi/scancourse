@@ -50,10 +50,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit profile',
             onPressed: () async {
               await context.push('/edit-profile');
               _loadLocalImage(); // refresh image after returning from edit
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => context.push('/settings'),
           ),
         ],
       ),
@@ -181,42 +187,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 child: Column(
                   children: [
+                    // Personal data — things that are YOURS, not settings.
                     ListTile(
                       leading: const Icon(Icons.description_outlined, color: AppColors.primary),
                       title: const Text('My Reports'),
+                      subtitle: const Text('Uploaded report cards',
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                       onTap: () => context.push('/reports'),
                     ),
                     ListTile(
                       leading: const Icon(Icons.assignment_outlined, color: AppColors.primary),
                       title: const Text('My Applications'),
+                      subtitle: const Text('Track courses + bursaries you\'ve applied to',
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                       onTap: () => context.push('/applications'),
                     ),
                     ListTile(
                       leading: const Icon(Icons.bookmark_outline, color: AppColors.primary),
                       title: const Text('Saved Items'),
+                      subtitle: const Text('Bookmarked courses + bursaries',
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                       onTap: () => context.push('/saved'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.notifications_outlined, color: AppColors.primary),
-                      title: const Text('Notifications'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () => context.push('/notifications'),
-                    ),
-                    // Language picker disabled — English-only build for now.
-                    ListTile(
-                      leading: const Icon(Icons.lock_outline,
-                          color: AppColors.primary),
-                      title: const Text('Change Password'),
-                      subtitle: const Text(
-                          'Update your sign-in password',
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () => context.push('/change-password'),
                     ),
                     ListTile(
                       leading: const Icon(Icons.psychology_alt_outlined,
@@ -233,56 +227,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ListTile(
                       leading: const Icon(Icons.auto_awesome, color: AppColors.primary),
                       title: const Text('AI Motivation Letter'),
+                      subtitle: const Text('Generate a custom application letter',
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                       onTap: () => context.push('/motivation-letter'),
                     ),
                     const Divider(height: 1, indent: 56),
+                    // Single entry point to everything else.
                     ListTile(
-                      leading: const Icon(Icons.mail_outline, color: AppColors.textSecondary),
-                      title: const Text('Contact Us'),
-                      subtitle: const Text('info@scancourse.co.za',
+                      leading: const Icon(Icons.settings_outlined, color: AppColors.textSecondary),
+                      title: const Text('Settings'),
+                      subtitle: const Text(
+                          'Notifications, security, privacy, about',
                           style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () => context.push('/legal/contact'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.info_outline, color: AppColors.textSecondary),
-                      title: const Text('About Scancourse'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () => context.push('/legal/about'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.privacy_tip_outlined, color: AppColors.textSecondary),
-                      title: const Text('Privacy Policy'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () => context.push('/legal/privacy'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.gavel_outlined, color: AppColors.textSecondary),
-                      title: const Text('Terms & Conditions'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () => context.push('/legal/terms'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.policy_outlined, color: AppColors.textSecondary),
-                      title: const Text('Acceptable Use'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () => context.push('/legal/acceptable-use'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.warning_amber_outlined, color: AppColors.textSecondary),
-                      title: const Text('Disclaimer'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () => context.push('/legal/disclaimer'),
-                    ),
-                    const Divider(height: 1, indent: 56),
-                    ListTile(
-                      leading: const Icon(Icons.logout, color: AppColors.error),
-                      title: const Text('Sign Out', style: TextStyle(color: AppColors.error)),
-                      onTap: () async {
-                        await ref.read(authStateProvider.notifier).logout();
-                        if (context.mounted) context.go('/login');
-                      },
+                      onTap: () => context.push('/settings'),
                     ),
                   ],
                 ),

@@ -26,6 +26,7 @@ import '../../presentation/screens/motivation_letter/motivation_letter_screen.da
 import '../../presentation/screens/outcomes/outcomes_screen.dart';
 import '../../presentation/screens/profile/edit_profile_screen.dart';
 import '../../presentation/screens/profile/change_password_screen.dart';
+import '../../presentation/screens/settings/settings_screen.dart';
 import '../../presentation/screens/notifications/notifications_screen.dart';
 import '../../presentation/screens/saved/saved_items_screen.dart';
 import '../../presentation/screens/applications/applications_screen.dart';
@@ -109,6 +110,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/edit-profile', builder: (_, __) => const EditProfileScreen()),
       GoRoute(path: '/change-password', builder: (_, __) => const ChangePasswordScreen()),
+      GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       GoRoute(path: '/improvement-plan', builder: (_, __) => const ImprovementPlanScreen()),
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/saved', builder: (_, __) => const SavedItemsScreen()),
