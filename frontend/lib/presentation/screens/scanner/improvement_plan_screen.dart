@@ -42,11 +42,29 @@ class _ImprovementPlanScreenState
     Icons.alt_route_outlined,
   ];
 
+  /// Title flips based on the grade returned by the API:
+  ///   grade_10/11 → "My Improvement Path"  (lift your marks before matric)
+  ///   grade_12/gap_year/other → "My Next Steps"  (marks locked, apply now)
+  ///   unknown → "My Plan"  (neutral)
+  static String _titleFor(String grade) {
+    if (grade == 'grade_10' || grade == 'grade_11') return 'My Improvement Path';
+    if (grade == 'grade_12' || grade == 'gap_year' || grade == 'other') {
+      return 'My Next Steps';
+    }
+    return 'My Plan';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Improvement Path'),
+        title: FutureBuilder<Map<String, dynamic>>(
+          future: _future,
+          builder: (_, snap) {
+            final grade = ((snap.data?['grade']) as String?) ?? '';
+            return Text(_titleFor(grade));
+          },
+        ),
         leading: BackButton(onPressed: () => context.pop()),
         actions: [
           IconButton(

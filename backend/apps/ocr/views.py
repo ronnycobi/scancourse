@@ -341,17 +341,24 @@ class ImprovementPlanView(APIView):
             dream_career=getattr(user, 'dream_career', '') or '',
             preferred_field=getattr(user, 'preferred_field', '') or '',
             saved_courses=list(saved_courses),
+            grade=getattr(user, 'grade', '') or '',
         )
         return Response({
             'total_aps': merged['total_aps'],
+            'grade': getattr(user, 'grade', '') or '',
             'plan': plan,
         })
 
 
 def _gemini_improvement_plan(
-    subjects, total_aps, dream_career, preferred_field, saved_courses
+    subjects, total_aps, dream_career, preferred_field, saved_courses,
+    grade='',
 ):
-    """Returns: {actions: [{title, description, impact}], summary: str}"""
+    """Returns: {actions: [{title, description, impact}], summary: str}
+
+    `grade` ('grade_10', 'grade_11', 'grade_12', 'gap_year', 'other', '')
+    changes the kind of advice: pre-matric students get
+    mark-improvement guidance, matrics get application strategy."""
     import json as _json
     import logging
     logger = logging.getLogger(__name__)
@@ -376,8 +383,40 @@ def _gemini_improvement_plan(
         'dream_career': dream_career,
         'preferred_field': preferred_field,
         'goal_courses': list(saved_courses),
+        'grade': grade,
     }
-    prompt = f"""You are a friendly South African study coach helping a Grade 11/12 learner improve their APS.
+    marks_locked = grade in ('grade_12', 'gap_year', 'other')
+
+    if marks_locked:
+        # Final NSC marks — coach pivots to APPLICATION strategy, not
+        # "study harder". Telling a matric to improve their maths is
+        # patronising and unactionable.
+        prompt = f"""You are a friendly South African student advisor helping a learner who has FINISHED matric (final NSC marks are set — they CANNOT improve them now).
+
+Their profile:
+{_json.dumps(payload, ensure_ascii=False, indent=2)}
+
+Generate exactly 3 specific, actionable next steps in this JSON shape:
+
+{{
+  "summary": "<one warm sentence acknowledging their APS and what stage they're at>",
+  "actions": [
+    {{"title": "Apply now", "description": "<which 2-3 SA universities/programmes they should apply to FIRST, given their APS and dream career>", "impact": "<e.g. 'Apply this week — deadlines close soon'>"}},
+    {{"title": "Bursaries to chase", "description": "<2 specific bursaries that fit their APS + field — NSFAS first if APS qualifies, plus one private/corporate>", "impact": "<e.g. 'Could cover full tuition + accommodation'>"}},
+    {{"title": "Backup pathway", "description": "<if their dream needs higher APS than they got: realistic alternative — diploma → bridging course → degree, OR a TVET NC(V) route, OR consider supplementary exam>", "impact": "<e.g. 'Diploma → BCom in 4-5 years'>"}}
+  ]
+}}
+
+Rules:
+- DO NOT tell them to study harder or improve any subject mark. Their marks are FINAL.
+- Be concrete. Name actual universities, bursaries, programmes when possible.
+- Each description max 240 chars.
+- South African context only (NSC, APS, NSFAS, TVET, supplementary exams).
+- Output ONLY the JSON, no markdown fences.
+"""
+    else:
+        # Still in school (or grade unknown) — original "improve your marks" plan.
+        prompt = f"""You are a friendly South African study coach helping a Grade 10/11 learner improve their APS BEFORE matric.
 
 Their profile:
 {_json.dumps(payload, ensure_ascii=False, indent=2)}

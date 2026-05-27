@@ -168,23 +168,66 @@ class HomeFeedView(APIView):
         }]
 
     def _improvement_nudge(self, user):
+        """
+        Grade-aware "what to do with your APS" card.
+
+        - Grade 10 / 11: mid-school, marks can still move. Push the
+          improvement plan ("see how to lift your APS").
+        - Grade 12 / gap year / other: NSC marks are already on file.
+          No point telling them to study harder. Push *application*
+          + course-discovery instead — that's what's next.
+        - Grade not set: neutral wording so we don't insult anyone.
+        """
         from apps.ocr.models import APSResult
-        latest = APSResult.objects.filter(user=user).order_by('-created_at').first()
+        latest = APSResult.objects.filter(user=user).order_by(
+            '-created_at').first()
         if not latest:
             return []
-        # If their APS is below 30, lean harder on improvement
-        urgent = latest.total_aps < 30
+
+        grade = (user.grade or '').strip()
+        can_still_improve = grade in ('grade_10', 'grade_11')
+        marks_locked = grade in ('grade_12', 'gap_year', 'other')
+
+        if can_still_improve:
+            urgent = latest.total_aps < 30
+            return [{
+                'id': 'improvement-nudge',
+                'type': 'improvement',
+                'priority': 60 if not urgent else 80,
+                'icon': 'trending_up',
+                'accent': 'accent',
+                'title': f'Your APS is {latest.total_aps}. Push it higher?',
+                'body': 'Tap for 3 specific things you can do this term to lift your marks before finals.',
+                'cta': 'See plan',
+                'deep_link': '/improvement-plan',
+            }]
+
+        if marks_locked:
+            # Different message — focus on apply NOW.
+            return [{
+                'id': 'apply-nudge',
+                'type': 'match',
+                'priority': 75,
+                'icon': 'school',
+                'accent': 'primary',
+                'title': f'Your APS is {latest.total_aps}. Time to apply.',
+                'body': 'See every course and bursary you qualify for, and start tracking your applications.',
+                'cta': 'See matches',
+                'deep_link': '/courses',
+            }]
+
+        # Grade unset — neutral wording, doesn't presume the user is
+        # still studying or done.
         return [{
-            'id': 'improvement-nudge',
-            'type': 'improvement',
-            'priority': 60 if not urgent else 80,
-            'icon': 'trending_up',
-            'accent': 'accent',
-            'title': 'Your APS is {}. Want to push it higher?'.format(
-                latest.total_aps),
-            'body': 'Tap for 3 specific things you can do this week.',
-            'cta': 'See plan',
-            'deep_link': '/improvement-plan',
+            'id': 'aps-info',
+            'type': 'match',
+            'priority': 55,
+            'icon': 'school',
+            'accent': 'primary',
+            'title': f'Your APS is {latest.total_aps}',
+            'body': 'See the courses and bursaries you qualify for.',
+            'cta': 'Browse',
+            'deep_link': '/courses',
         }]
 
     def _profile_nudge(self, user):

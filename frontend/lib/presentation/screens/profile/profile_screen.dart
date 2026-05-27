@@ -21,6 +21,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   static const _storage = FlutterSecureStorage();
   File? _localImage;
 
+  /// Grade-aware label for the "My plan" tile.
+  /// - Grade 10/11 → still in school → can improve marks
+  /// - Grade 12/gap year → marks locked → focus on applications
+  static String _planTileTitle(String? grade) {
+    if (grade == 'grade_10' || grade == 'grade_11') return 'My Improvement Path';
+    if (grade == 'grade_12' || grade == 'gap_year' || grade == 'other') {
+      return 'My Next Steps';
+    }
+    return 'My Plan';
+  }
+
+  static String _planTileSubtitle(String? grade) {
+    if (grade == 'grade_10' || grade == 'grade_11') {
+      return 'AI plan to lift your marks';
+    }
+    if (grade == 'grade_12' || grade == 'gap_year' || grade == 'other') {
+      return 'AI plan to apply, win bursaries + plan your route';
+    }
+    return 'AI plan tailored to where you are right now';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -227,10 +248,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ListTile(
                       leading: const Icon(Icons.psychology_alt_outlined,
                           color: AppColors.primary),
-                      title: const Text('My Improvement Path'),
-                      subtitle: const Text(
-                          'AI plan to close your APS gaps',
-                          style: TextStyle(
+                      title: Text(_planTileTitle(user?.grade)),
+                      subtitle: Text(
+                          _planTileSubtitle(user?.grade),
+                          style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary)),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),

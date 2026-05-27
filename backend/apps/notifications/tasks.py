@@ -227,18 +227,22 @@ def send_new_course_matches():
 def send_aps_improvement_nudge():
     """
     Users who have an APS but haven't engaged with the improvement plan
-    in 14 days get a friendly nudge.
+    in 14 days get a friendly nudge. SKIPS Grade-12 / gap-year / other
+    users — their marks are locked, telling them to study harder is
+    insulting. Those users get matched to courses instead.
     """
     from apps.ocr.models import APSResult
     User = get_user_model()
     fired = 0
 
-    # All users with an APS result. Exclude very recently joined (let them
-    # explore first).
+    # Only Grade 10/11 (still in school, marks can move) or grade unset
+    # (we don't know — default to neutral).
     aps_users = User.objects.filter(
         is_active=True,
         date_joined__lte=timezone.now() - timedelta(days=3),
-    ).exclude(fcm_token='').distinct()
+    ).exclude(fcm_token='').exclude(
+        grade__in=['grade_12', 'gap_year', 'other']
+    ).distinct()
 
     for user in aps_users:
         if _already_sent_recently(user, 'aps', hours=24 * 14):
@@ -248,8 +252,8 @@ def send_aps_improvement_nudge():
         if not last_aps:
             continue
         _fire(user, 'aps',
-              'Your APS is {}. Want to push it higher?'.format(last_aps.total_aps),
-              'Tap to see 3 specific things you can do this week.',
+              'Your APS is {}. Push it higher?'.format(last_aps.total_aps),
+              'Tap to see 3 specific things you can do this term to lift your marks.',
               {})
         fired += 1
     logger.info('aps improvement nudges sent: %d', fired)
