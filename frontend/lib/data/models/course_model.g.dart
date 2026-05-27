@@ -23,6 +23,10 @@ CourseModel _$CourseModelFromJson(Map<String, dynamic> json) => CourseModel(
           ?.map((e) => CourseOffering.fromJson(e as Map<String, dynamic>))
           .toList(),
       matchCategory: json['match_category'] as String?,
+      institutionName: json['institution_name'] as String?,
+      institutionShort: json['institution_short'] as String?,
+      institutionCity: json['institution_city'] as String?,
+      institutionLogoUrl: json['institution_logo_url'] as String?,
     );
 
 Map<String, dynamic> _$CourseModelToJson(CourseModel instance) =>
@@ -41,6 +45,10 @@ Map<String, dynamic> _$CourseModelToJson(CourseModel instance) =>
       'min_aps': instance.minAps,
       'offerings': instance.offerings,
       'match_category': instance.matchCategory,
+      'institution_name': instance.institutionName,
+      'institution_short': instance.institutionShort,
+      'institution_city': instance.institutionCity,
+      'institution_logo_url': instance.institutionLogoUrl,
     };
 
 CourseOffering _$CourseOfferingFromJson(Map<String, dynamic> json) =>

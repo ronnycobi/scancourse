@@ -22,20 +22,58 @@ class CourseOfferingSerializer(serializers.ModelSerializer):
 
 
 class CourseListSerializer(serializers.ModelSerializer):
+    """
+    Lightweight serializer for the /courses/ list endpoint. Includes the
+    primary (lowest APS) offering's institution so cards can show
+    "BCom Accounting · Wits" without making a second request.
+    """
     min_aps = serializers.SerializerMethodField()
     duration_years = serializers.FloatField(read_only=True)
     fees_per_year = serializers.FloatField(read_only=True)
+    institution_name = serializers.SerializerMethodField()
+    institution_short = serializers.SerializerMethodField()
+    institution_city = serializers.SerializerMethodField()
+    institution_logo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
         fields = (
             'id', 'name', 'field', 'level', 'duration_years',
             'fees_per_year', 'salary_min', 'salary_max', 'min_aps',
+            'institution_name', 'institution_short',
+            'institution_city', 'institution_logo_url',
         )
 
+    def _primary(self, obj):
+        """Lowest-APS active offering — most accessible entry point.
+        Cached on the instance to keep it to one query per row."""
+        if not hasattr(obj, '_primary_offering_cache'):
+            obj._primary_offering_cache = (
+                obj.offerings.filter(is_active=True)
+                .select_related('institution')
+                .order_by('min_aps').first()
+            )
+        return obj._primary_offering_cache
+
     def get_min_aps(self, obj):
-        offering = obj.offerings.filter(is_active=True).order_by('min_aps').first()
-        return offering.min_aps if offering else None
+        o = self._primary(obj)
+        return o.min_aps if o else None
+
+    def get_institution_name(self, obj):
+        o = self._primary(obj)
+        return o.institution.name if (o and o.institution_id) else None
+
+    def get_institution_short(self, obj):
+        o = self._primary(obj)
+        return o.institution.short_name if (o and o.institution_id) else None
+
+    def get_institution_city(self, obj):
+        o = self._primary(obj)
+        return o.institution.city if (o and o.institution_id) else None
+
+    def get_institution_logo_url(self, obj):
+        o = self._primary(obj)
+        return o.institution.logo_url if (o and o.institution_id) else None
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):

@@ -136,6 +136,16 @@ class CourseModel {
   final List<CourseOffering>? offerings;
   @JsonKey(name: 'match_category')
   final String? matchCategory;
+  // Flat institution fields populated by the list endpoint so cards
+  // can show "BCom · Wits" without needing the offerings array.
+  @JsonKey(name: 'institution_name')
+  final String? institutionName;
+  @JsonKey(name: 'institution_short')
+  final String? institutionShort;
+  @JsonKey(name: 'institution_city')
+  final String? institutionCity;
+  @JsonKey(name: 'institution_logo_url')
+  final String? institutionLogoUrl;
 
   const CourseModel({
     required this.id,
@@ -152,6 +162,10 @@ class CourseModel {
     this.minAps,
     this.offerings,
     this.matchCategory,
+    this.institutionName,
+    this.institutionShort,
+    this.institutionCity,
+    this.institutionLogoUrl,
   });
 
   factory CourseModel.fromJson(Map<String, dynamic> json) => _$CourseModelFromJson(json);

@@ -537,11 +537,35 @@ class _BrowseCourseCard extends StatelessWidget {
     return sorted.first;
   }
 
+  /// Best institution name we have. Prefer flat fields from the list
+  /// endpoint (e.g. "Wits") over the full name we'd compute from
+  /// offerings. Falls back to the offering's institution if available.
+  ({String name, String? short, String? city, String? logoUrl})?
+      get _displayInstitution {
+    if ((course.institutionName ?? course.institutionShort) != null) {
+      return (
+        name: course.institutionShort?.isNotEmpty == true
+            ? course.institutionShort!
+            : (course.institutionName ?? ''),
+        short: course.institutionShort,
+        city: course.institutionCity,
+        logoUrl: course.institutionLogoUrl,
+      );
+    }
+    final inst = _bestOffering?.institution;
+    if (inst == null) return null;
+    return (
+      name: inst.shortName?.isNotEmpty == true ? inst.shortName! : inst.name,
+      short: inst.shortName,
+      city: inst.city,
+      logoUrl: inst.logoUrl,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final offering = _bestOffering;
-    final inst = offering?.institution;
-    final minAps = offering?.minAps ?? course.minAps ?? 0;
+    final inst = _displayInstitution;
+    final minAps = _bestOffering?.minAps ?? course.minAps ?? 0;
     final fieldLabel = AppConstants.studyFields[course.field] ?? course.field;
     final levelLabel = course.level.toUpperCase().replaceAll('_', ' ');
 
@@ -556,8 +580,7 @@ class _BrowseCourseCard extends StatelessWidget {
               children: [
                 RemoteLogo(
                   url: inst.logoUrl,
-                  fallbackInitial:
-                      inst.shortName?.isNotEmpty == true ? inst.shortName! : inst.name,
+                  fallbackInitial: inst.name,
                   size: 36,
                 ),
                 const SizedBox(width: 10),
@@ -566,7 +589,7 @@ class _BrowseCourseCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        inst.name,
+                        inst.name, // short name preferred
                         style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -574,15 +597,14 @@ class _BrowseCourseCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
-                        [inst.city, inst.province]
-                            .where((s) => s != null && s.toString().isNotEmpty)
-                            .join(' · '),
-                        style: const TextStyle(
-                            fontSize: 11, color: AppColors.textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      if (inst.city != null && inst.city!.isNotEmpty)
+                        Text(
+                          inst.city!,
+                          style: const TextStyle(
+                              fontSize: 11, color: AppColors.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                     ],
                   ),
                 ),
@@ -598,7 +620,7 @@ class _BrowseCourseCard extends StatelessWidget {
             const Divider(height: 1, color: AppColors.border),
             const SizedBox(height: 12),
           ] else
-            // No offerings — still show bookmark and bare layout
+            // No institution data — still show bookmark
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -1004,7 +1026,12 @@ class _OfferingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      offering.institutionName,
+                      // Prefer the short brand name ("Wits") over the
+                      // formal name ("University of the Witwatersrand")
+                      // so it doesn't truncate on small phones.
+                      offering.institutionShort?.isNotEmpty == true
+                          ? offering.institutionShort!
+                          : offering.institutionName,
                       style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
