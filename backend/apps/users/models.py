@@ -28,9 +28,16 @@ class User(AbstractUser):
     profile_picture = models.ImageField(upload_to='profiles/', null=True, blank=True)
     grade = models.CharField(max_length=20, choices=GRADE_CHOICES, blank=True)
     province = models.CharField(max_length=3, choices=PROVINCE_CHOICES, blank=True)
+    # Singular fields kept for backwards compat with matcher/recommender
+    # code that still reads them directly. New code should read the plural
+    # JSON lists below — sync helpers ensure both stay aligned.
     preferred_field = models.CharField(max_length=100, blank=True)
     preferred_study_province = models.CharField(max_length=3, choices=PROVINCE_CHOICES, blank=True)
     dream_career = models.CharField(max_length=200, blank=True)
+    # Plural fields — users can pick multiple. Stored as JSON list of strings.
+    preferred_fields = models.JSONField(default=list, blank=True)
+    preferred_study_provinces = models.JSONField(default=list, blank=True)
+    dream_careers = models.JSONField(default=list, blank=True)
     onboarding_completed = models.BooleanField(default=False)
     fcm_token = models.TextField(blank=True)
     LANGUAGE_CHOICES = [

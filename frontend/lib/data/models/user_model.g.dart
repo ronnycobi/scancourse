@@ -19,6 +19,19 @@ UserModel _$UserModelFromJson(Map<String, dynamic> json) => UserModel(
       preferredField: json['preferred_field'] as String?,
       preferredStudyProvince: json['preferred_study_province'] as String?,
       dreamCareer: json['dream_career'] as String?,
+      preferredFields: (json['preferred_fields'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      preferredStudyProvinces:
+          (json['preferred_study_provinces'] as List<dynamic>?)
+                  ?.map((e) => e as String)
+                  .toList() ??
+              [],
+      dreamCareers: (json['dream_careers'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
       onboardingCompleted: json['onboarding_completed'] as bool? ?? false,
       createdAt: json['created_at'] == null
           ? null
@@ -38,6 +51,9 @@ Map<String, dynamic> _$UserModelToJson(UserModel instance) => <String, dynamic>{
       'preferred_field': instance.preferredField,
       'preferred_study_province': instance.preferredStudyProvince,
       'dream_career': instance.dreamCareer,
+      'preferred_fields': instance.preferredFields,
+      'preferred_study_provinces': instance.preferredStudyProvinces,
+      'dream_careers': instance.dreamCareers,
       'onboarding_completed': instance.onboardingCompleted,
       'created_at': instance.createdAt?.toIso8601String(),
     };

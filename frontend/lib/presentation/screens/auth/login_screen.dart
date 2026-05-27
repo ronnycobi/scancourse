@@ -28,6 +28,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   /// attempt or dismiss.
   String? _googleError;
 
+  // Live field errors. Updated on every keystroke.
+  String? _emailError;
+  String? _passwordError;
+  final _touched = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl.addListener(_liveEmail);
+    _passwordCtrl.addListener(_livePassword);
+  }
+
+  void _liveEmail() {
+    final v = _emailCtrl.text.trim();
+    setState(() {
+      _touched.add('email');
+      if (v.isEmpty) {
+        _emailError = null;
+      } else if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v)) {
+        _emailError = 'Not a valid email';
+      } else {
+        _emailError = null;
+      }
+    });
+  }
+
+  void _livePassword() {
+    final v = _passwordCtrl.text;
+    setState(() {
+      _touched.add('password');
+      if (v.isEmpty) {
+        _passwordError = null;
+      } else if (v.length < 6) {
+        _passwordError = 'Password too short';
+      } else {
+        _passwordError = null;
+      }
+    });
+  }
+
+  bool get _canSubmit =>
+      _emailCtrl.text.trim().isNotEmpty &&
+      _passwordCtrl.text.isNotEmpty &&
+      _emailError == null &&
+      _passwordError == null;
+
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -38,7 +84,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _login() async {
     setState(() => _googleError = null);
     ref.read(authStateProvider.notifier).clearError();
-    if (!_formKey.currentState!.validate()) return;
+    // Trigger live validation by "touching" both fields first
+    _liveEmail();
+    _livePassword();
+    if (!_canSubmit) {
+      setState(() {
+        if (_emailCtrl.text.trim().isEmpty) {
+          _emailError = 'Please enter your email';
+        }
+        if (_passwordCtrl.text.isEmpty) {
+          _passwordError = 'Please enter your password';
+        }
+      });
+      return;
+    }
     await ref.read(authStateProvider.notifier).login(
       _emailCtrl.text.trim(),
       _passwordCtrl.text,
@@ -149,15 +208,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                   prefixIcon: Icons.email_outlined,
-                  validator: (v) {
-                    final s = v?.trim() ?? '';
-                    if (s.isEmpty) return 'Please enter your email';
-                    if (!s.contains('@') || !s.contains('.')) {
-                      return 'Enter a valid email address';
-                    }
-                    return null;
-                  },
+                  suffixIcon: (_touched.contains('email') &&
+                          _emailError == null &&
+                          _emailCtrl.text.trim().isNotEmpty)
+                      ? const Padding(
+                          padding: EdgeInsets.only(right: 12),
+                          child: Icon(Icons.check_circle,
+                              color: AppColors.eligible, size: 20),
+                        )
+                      : null,
                 ),
+                if (_emailError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    child: Row(children: [
+                      const Icon(Icons.error_outline,
+                          size: 13, color: AppColors.error),
+                      const SizedBox(width: 4),
+                      Text(_emailError!,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.error,
+                              fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
                 const SizedBox(height: 16),
                 AppTextField(
                   label: 'Password',
@@ -172,12 +246,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
                   ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Please enter your password';
-                    if (v.length < 6) return 'Password is too short';
-                    return null;
-                  },
                 ),
+                if (_passwordError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    child: Row(children: [
+                      const Icon(Icons.error_outline,
+                          size: 13, color: AppColors.error),
+                      const SizedBox(width: 4),
+                      Text(_passwordError!,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.error,
+                              fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,

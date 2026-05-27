@@ -10,6 +10,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../widgets/common/app_text_field.dart';
+import '../../widgets/common/multi_select_sheet.dart';
 import '../../widgets/common/error_banner.dart';
 import '../../widgets/common/loading_button.dart';
 
@@ -27,12 +28,18 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _dreamCareerCtrl = TextEditingController();
+  // Used for the "Add a career" text input inside the chip picker.
+  final _careerInputCtrl = TextEditingController();
 
   String? _grade;
   String? _province;
-  String? _preferredField;
-  String? _preferredStudyProvince;
+  // Lists — users can pick MULTIPLE fields / study provinces / dream
+  // careers. We keep these in sync with the new server-side plural
+  // fields; the single-value variants on the backend will still get
+  // populated from index [0] for legacy consumers.
+  List<String> _preferredFields = [];
+  List<String> _preferredStudyProvinces = [];
+  List<String> _dreamCareers = [];
 
   File? _pickedImage;
   bool _isSaving = false;
@@ -61,11 +68,26 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _firstNameCtrl.text = user.firstName;
     _lastNameCtrl.text = user.lastName;
     _phoneCtrl.text = _localPhoneFrom(user.phoneNumber);
-    _dreamCareerCtrl.text = user.dreamCareer ?? '';
     _grade = user.grade;
     _province = user.province;
-    _preferredField = user.preferredField;
-    _preferredStudyProvince = user.preferredStudyProvince;
+    // Prefer plural lists, fall back to singular for users created
+    // before the migration.
+    _preferredFields = user.preferredFields.isNotEmpty
+        ? List.of(user.preferredFields)
+        : (user.preferredField != null && user.preferredField!.isNotEmpty
+            ? [user.preferredField!]
+            : []);
+    _preferredStudyProvinces = user.preferredStudyProvinces.isNotEmpty
+        ? List.of(user.preferredStudyProvinces)
+        : (user.preferredStudyProvince != null &&
+                user.preferredStudyProvince!.isNotEmpty
+            ? [user.preferredStudyProvince!]
+            : []);
+    _dreamCareers = user.dreamCareers.isNotEmpty
+        ? List.of(user.dreamCareers)
+        : (user.dreamCareer != null && user.dreamCareer!.isNotEmpty
+            ? [user.dreamCareer!]
+            : []);
   }
 
   Future<void> _loadStoredImage() async {
@@ -80,7 +102,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _firstNameCtrl.dispose();
     _lastNameCtrl.dispose();
     _phoneCtrl.dispose();
-    _dreamCareerCtrl.dispose();
+    _careerInputCtrl.dispose();
+
     super.dispose();
   }
 
@@ -213,7 +236,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       final firstName = _firstNameCtrl.text.trim();
       final lastName = _lastNameCtrl.text.trim();
       final phone = _phoneCtrl.text.trim();
-      final dreamCareer = _dreamCareerCtrl.text.trim();
 
       if (firstName.isEmpty) {
         setState(() {
@@ -248,9 +270,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       }
       data['grade'] = _grade;
       data['province'] = _province;
-      data['preferred_field'] = _preferredField;
-      data['preferred_study_province'] = _preferredStudyProvince;
-      data['dream_career'] = dreamCareer;
+      // Send the new plural fields. The serializer also syncs the singular
+      // versions to the first item so legacy code keeps working.
+      data['preferred_fields'] = _preferredFields;
+      data['preferred_study_provinces'] = _preferredStudyProvinces;
+      data['dream_careers'] = _dreamCareers;
 
       await ref.read(authStateProvider.notifier).updateProfile(data);
 
@@ -427,35 +451,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         onSelected: (v) => setState(() => _province = v),
                       ),
                     ),
-                    const Divider(height: 1, indent: 56),
-                    _PickerTile(
-                      icon: Icons.category_outlined,
-                      label: 'Preferred Field',
-                      value: _preferredField != null
-                          ? AppConstants.studyFields[_preferredField] ?? _preferredField!
-                          : null,
-                      onTap: () => _showPickerSheet<String>(
-                        title: 'Select Preferred Field',
-                        options: AppConstants.studyFields,
-                        currentValue: _preferredField,
-                        onSelected: (v) => setState(() => _preferredField = v),
-                      ),
-                    ),
-                    const Divider(height: 1, indent: 56),
-                    _PickerTile(
-                      icon: Icons.flight_outlined,
-                      label: 'Preferred Study Province',
-                      value: _preferredStudyProvince != null
-                          ? AppConstants.provinces[_preferredStudyProvince] ?? _preferredStudyProvince!
-                          : null,
-                      isLast: true,
-                      onTap: () => _showPickerSheet<String>(
-                        title: 'Preferred Study Province',
-                        options: AppConstants.provinces,
-                        currentValue: _preferredStudyProvince,
-                        onSelected: (v) => setState(() => _preferredStudyProvince = v),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -463,25 +458,82 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
             const SizedBox(height: 20),
 
-            // Dream Career section
-            _SectionHeader(title: 'Dream Career'),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                padding: const EdgeInsets.all(16),
-                child: AppTextField(
-                  label: 'Dream Career',
-                  hint: 'e.g. Software Engineer, Doctor, Lawyer…',
-                  controller: _dreamCareerCtrl,
-                  prefixIcon: Icons.star_outline,
-                  maxLines: 2,
-                ),
-              ),
+            // ── Interested Fields (multi-select) ──────────────────────
+            _SectionHeader(title: 'Interested Fields'),
+            _MultiSelectCard(
+              icon: Icons.category_outlined,
+              prompt: _preferredFields.isEmpty
+                  ? 'Pick the study fields you\'re curious about'
+                  : 'Tap to edit your interested fields',
+              labels: _preferredFields
+                  .map((k) => AppConstants.studyFields[k] ?? k)
+                  .toList(),
+              onTap: () async {
+                final result = await MultiSelectSheet.show(
+                  context,
+                  title: 'Interested fields',
+                  subtitle: 'Pick all that catch your eye',
+                  options: AppConstants.studyFields,
+                  initiallySelected: _preferredFields,
+                  maxSelections: 5,
+                );
+                if (result != null) {
+                  setState(() => _preferredFields = result);
+                }
+              },
+              onRemove: (i) => setState(() => _preferredFields.removeAt(i)),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Preferred Study Provinces (multi-select) ──────────────
+            _SectionHeader(title: 'Where would you study?'),
+            _MultiSelectCard(
+              icon: Icons.flight_outlined,
+              prompt: _preferredStudyProvinces.isEmpty
+                  ? 'Pick provinces you\'d consider studying in'
+                  : 'Tap to edit your preferred study provinces',
+              labels: _preferredStudyProvinces
+                  .map((k) => AppConstants.provinces[k] ?? k)
+                  .toList(),
+              onTap: () async {
+                final result = await MultiSelectSheet.show(
+                  context,
+                  title: 'Preferred study provinces',
+                  subtitle: 'Pick any number you\'d be open to',
+                  options: AppConstants.provinces,
+                  initiallySelected: _preferredStudyProvinces,
+                );
+                if (result != null) {
+                  setState(() => _preferredStudyProvinces = result);
+                }
+              },
+              onRemove: (i) =>
+                  setState(() => _preferredStudyProvinces.removeAt(i)),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Dream Careers (multi-select free text) ────────────────
+            _SectionHeader(title: 'Dream Careers'),
+            _DreamCareerEditor(
+              careers: _dreamCareers,
+              controller: _careerInputCtrl,
+              onAdd: (c) {
+                final t = c.trim();
+                if (t.isEmpty || _dreamCareers.contains(t)) return;
+                if (_dreamCareers.length >= 5) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text(
+                        'You can list up to 5 dream careers.')),
+                  );
+                  return;
+                }
+                setState(() => _dreamCareers.add(t));
+                _careerInputCtrl.clear();
+              },
+              onRemove: (i) =>
+                  setState(() => _dreamCareers.removeAt(i)),
             ),
 
             const SizedBox(height: 28),
@@ -553,6 +605,191 @@ class _PickerTile extends StatelessWidget {
       ),
       trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textHint),
       onTap: onTap,
+    );
+  }
+}
+
+/// Card that shows the current multi-select selection as removable chips
+/// and lets the user tap to open the picker.
+class _MultiSelectCard extends StatelessWidget {
+  final IconData icon;
+  final String prompt;
+  final List<String> labels;
+  final VoidCallback onTap;
+  final void Function(int index) onRemove;
+
+  const _MultiSelectCard({
+    required this.icon,
+    required this.prompt,
+    required this.labels,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          children: [
+            InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon,
+                          color: AppColors.primary, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        prompt,
+                        style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const Icon(Icons.add_circle_outline,
+                        color: AppColors.primary, size: 22),
+                  ],
+                ),
+              ),
+            ),
+            if (labels.isNotEmpty) ...[
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: List.generate(labels.length, (i) {
+                    return InputChip(
+                      label: Text(labels[i]),
+                      onDeleted: () => onRemove(i),
+                      backgroundColor: AppColors.primaryLight,
+                      labelStyle: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12),
+                      deleteIconColor: AppColors.primary,
+                      side: BorderSide.none,
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Free-text version for dream careers — add via keyboard, remove via chip.
+class _DreamCareerEditor extends StatelessWidget {
+  final List<String> careers;
+  final TextEditingController controller;
+  final void Function(String) onAdd;
+  final void Function(int index) onRemove;
+
+  const _DreamCareerEditor({
+    required this.careers,
+    required this.controller,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. Software Engineer, Doctor…',
+                      prefixIcon: Icon(Icons.star_outline,
+                          color: AppColors.primary),
+                    ),
+                    onSubmitted: onAdd,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => onAdd(controller.text),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Add'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                ),
+              ],
+            ),
+            if (careers.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: List.generate(careers.length, (i) {
+                  return InputChip(
+                    label: Text(careers[i]),
+                    onDeleted: () => onRemove(i),
+                    backgroundColor: AppColors.accentLight,
+                    labelStyle: const TextStyle(
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12),
+                    deleteIconColor: AppColors.accent,
+                    side: BorderSide.none,
+                    visualDensity: VisualDensity.compact,
+                  );
+                }),
+              ),
+            ] else
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'List 1 to 5 careers you\'re aiming for. Helps the AI tailor better recommendations.',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      fontStyle: FontStyle.italic),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

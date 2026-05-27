@@ -17,12 +17,20 @@ class UserModel {
   final String? profilePicture;
   final String? grade;
   final String? province;
+  // Singular fields — still returned by the server for backwards compat.
   @JsonKey(name: 'preferred_field')
   final String? preferredField;
   @JsonKey(name: 'preferred_study_province')
   final String? preferredStudyProvince;
   @JsonKey(name: 'dream_career')
   final String? dreamCareer;
+  // Plural lists — what the new UI reads and writes.
+  @JsonKey(name: 'preferred_fields', defaultValue: <String>[])
+  final List<String> preferredFields;
+  @JsonKey(name: 'preferred_study_provinces', defaultValue: <String>[])
+  final List<String> preferredStudyProvinces;
+  @JsonKey(name: 'dream_careers', defaultValue: <String>[])
+  final List<String> dreamCareers;
   @JsonKey(name: 'onboarding_completed')
   final bool onboardingCompleted;
   @JsonKey(name: 'created_at')
@@ -41,6 +49,9 @@ class UserModel {
     this.preferredField,
     this.preferredStudyProvince,
     this.dreamCareer,
+    this.preferredFields = const [],
+    this.preferredStudyProvinces = const [],
+    this.dreamCareers = const [],
     this.onboardingCompleted = false,
     this.createdAt,
   });
