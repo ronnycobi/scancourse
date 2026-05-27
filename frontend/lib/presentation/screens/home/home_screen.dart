@@ -24,15 +24,22 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStateProvider).user;
     final apsAsync = ref.watch(latestApsProvider);
+    final reportsAsync = ref.watch(reportListProvider);
     // 'Qualify' / 'Recommended' badges only make sense once we know the
     // user's APS. Until they scan, gate any APS-dependent sections.
     final hasAps = apsAsync.valueOrNull != null;
+    // Hide upload/CTAs as soon as the user has uploaded ANYTHING — even
+    // if APS is still 0 while the OCR processes — so the home screen
+    // stops nagging them to do something they've already done.
+    final hasReports = (reportsAsync.valueOrNull?.isNotEmpty) ?? false;
+    final hasUploadedSomething = hasAps || hasReports;
 
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(latestApsProvider);
+            ref.invalidate(reportListProvider);
             ref.invalidate(courseRecommendationsProvider);
             ref.invalidate(bursaryRecommendationsProvider);
             ref.invalidate(bursaryListProvider('status=open'));
@@ -76,60 +83,66 @@ class HomeScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Hero upload banner
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.primary, AppColors.primaryDark],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.document_scanner_rounded, color: Colors.white, size: 32),
-                          const SizedBox(height: 12),
-                          Text('Calculate your APS',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white)),
-                          const SizedBox(height: 6),
-                          Text('Upload your report card to find matching courses',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70)),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _HeroButton(
-                                  icon: Icons.upload_file_outlined,
-                                  label: 'Upload',
-                                  onTap: () => context.push('/scanner'),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _HeroButton(
-                                  icon: Icons.camera_alt_outlined,
-                                  label: 'Camera',
-                                  onTap: () => context.push('/scanner'),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _HeroButton(
-                                  icon: Icons.edit_outlined,
-                                  label: 'Enter Marks',
-                                  onTap: () => context.push('/manual-entry'),
-                                ),
-                              ),
-                            ],
+                    // Hero "Calculate your APS" banner — only shows when
+                    // the user hasn't uploaded anything yet. Once they
+                    // have a report (even if OCR hasn't finished and APS
+                    // is still 0), this disappears and the actual APS
+                    // dashboard card takes its place below.
+                    if (!hasUploadedSomething) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppColors.primary, AppColors.primaryDark],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                        ],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.document_scanner_rounded, color: Colors.white, size: 32),
+                            const SizedBox(height: 12),
+                            Text('Calculate your APS',
+                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white)),
+                            const SizedBox(height: 6),
+                            Text('Upload your report card to find matching courses',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70)),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _HeroButton(
+                                    icon: Icons.upload_file_outlined,
+                                    label: 'Upload',
+                                    onTap: () => context.push('/scanner'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _HeroButton(
+                                    icon: Icons.camera_alt_outlined,
+                                    label: 'Camera',
+                                    onTap: () => context.push('/scanner'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _HeroButton(
+                                    icon: Icons.edit_outlined,
+                                    label: 'Enter Marks',
+                                    onTap: () => context.push('/manual-entry'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
+                      const SizedBox(height: 24),
+                    ],
 
                     // APS Dashboard Cards
                     apsAsync.when(
@@ -207,7 +220,11 @@ class HomeScreen extends ConsumerWidget {
                       const SizedBox(height: 12),
                       const _RecommendedCourses(),
                       const SizedBox(height: 24),
-                    ] else ...[
+                    ] else if (!hasUploadedSomething) ...[
+                      // Show the unlock CTA only when there's nothing at
+                      // all on file. If a report is uploading / OCR is
+                      // running, we already show a busy spinner above —
+                      // don't double up with another "scan now" prompt.
                       const _UnlockRecommendationsCta(),
                       const SizedBox(height: 24),
                     ],
