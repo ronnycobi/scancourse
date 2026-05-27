@@ -275,7 +275,7 @@ class _RecommendedCourses extends ConsumerWidget {
 
     return async.when(
       loading: () => const SizedBox(
-        height: 130,
+        height: 210,
         child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
       ),
       error: (e, _) => Container(
@@ -315,13 +315,17 @@ class _RecommendedCourses extends ConsumerWidget {
             ),
           );
         }
+        // Premium taller carousel — 210px tall, snap-paged so each
+        // card stops cleanly. Bigger institution name, gradient
+        // header strip coloured by match verdict.
         return SizedBox(
-          height: 130,
+          height: 210,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 2),
             itemCount: recs.length.clamp(0, 10),
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (_, i) {
               final r = recs[i];
               final rec = (r['recommendation'] as Map?) ?? const {};
@@ -334,6 +338,8 @@ class _RecommendedCourses extends ConsumerWidget {
                 institution: (r['institution_short'] as String?) ??
                     (r['institution_name'] as String?) ??
                     '',
+                institutionLogoUrl:
+                    (r['institution_logo_url'] as String?) ?? '',
                 field: (r['course_field'] as String?) ?? '',
                 minAps: (r['min_aps'] as num?)?.toInt() ?? 0,
                 matchCategory: (match['category'] as String?) ?? '',
@@ -352,6 +358,7 @@ class _RecommendationCard extends StatelessWidget {
   final int courseId;
   final String courseName;
   final String institution;
+  final String institutionLogoUrl;
   final String field;
   final int minAps;
   final String reasonKey;
@@ -362,12 +369,29 @@ class _RecommendationCard extends StatelessWidget {
     required this.courseId,
     required this.courseName,
     required this.institution,
+    required this.institutionLogoUrl,
     required this.field,
     required this.minAps,
     required this.reasonKey,
     required this.matchCategory,
     required this.apsSurplus,
   });
+
+  // Colour set used by the gradient header strip — the verdict drives
+  // the whole card mood: green for qualify, amber for subject gap,
+  // blue-primary for aps gap, neutral for everything else.
+  ({Color top, Color bottom}) get _headerGradient {
+    switch (matchCategory) {
+      case 'eligible':
+        return (top: const Color(0xFF10B981), bottom: AppColors.eligible);
+      case 'subject_gap':
+        return (top: const Color(0xFFF59E0B), bottom: AppColors.subjectGap);
+      case 'aps_gap':
+        return (top: AppColors.primary, bottom: AppColors.primaryDark);
+      default:
+        return (top: AppColors.primary, bottom: AppColors.primaryDark);
+    }
+  }
 
   Color get _matchColor {
     switch (matchCategory) {
@@ -385,152 +409,237 @@ class _RecommendationCard extends StatelessWidget {
   String get _matchLabel {
     switch (matchCategory) {
       case 'eligible':
-        return apsSurplus > 0 ? 'Qualify +$apsSurplus' : 'Qualify ✓';
+        return apsSurplus > 0 ? 'Qualify +$apsSurplus' : 'Qualify';
       case 'subject_gap':
-        return 'Subject Gap';
+        return 'Subject gap';
       case 'aps_gap':
-        return 'APS Gap';
+        return 'APS short';
       default:
         return '';
+    }
+  }
+
+  IconData get _matchIcon {
+    switch (matchCategory) {
+      case 'eligible':
+        return Icons.check_circle;
+      case 'subject_gap':
+        return Icons.menu_book_outlined;
+      case 'aps_gap':
+        return Icons.trending_up;
+      default:
+        return Icons.info_outline;
     }
   }
 
   String get _reasonLabel {
     switch (reasonKey) {
       case 'similar_students':
-        return 'Popular with similar students';
+        return 'Popular nearby';
       case 'matches_your_subjects_and_career':
-        return 'Perfect fit for you';
+        return 'Perfect fit';
       case 'matches_your_subjects':
-        return 'Matches your subjects';
+        return 'Matches subjects';
       case 'matches_your_career':
-        return 'Fits your dream career';
+        return 'Fits your career';
       case 'matches_your_profile':
-        return 'Matches your marks & career';
+        return 'Matches your profile';
       default:
-        return 'Matches your interests';
-    }
-  }
-
-  IconData get _reasonIcon {
-    switch (reasonKey) {
-      case 'similar_students':
-        return Icons.groups_outlined;
-      case 'matches_your_subjects_and_career':
-        return Icons.workspace_premium_outlined;
-      case 'matches_your_subjects':
-        return Icons.school_outlined;
-      case 'matches_your_career':
-        return Icons.star_outline;
-      case 'matches_your_profile':
-        return Icons.verified_outlined;
-      default:
-        return Icons.auto_awesome_outlined;
+        return 'Recommended';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push('/courses/$courseId'),
-      child: Container(
-        width: 220,
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(_reasonIcon, size: 12, color: AppColors.primary),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    _reasonLabel,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              courseName,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-                height: 1.2,
+    final grad = _headerGradient;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.push('/courses/$courseId'),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          width: 260,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 3),
-            Text(
-              institution,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 6),
-            Row(
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ── Gradient header ─────────────────────────────────
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  height: 78,
+                  width: double.infinity,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Text(
-                    minAps > 0 ? 'APS $minAps+' : 'Open',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                    gradient: LinearGradient(
+                      colors: [grad.top, grad.bottom],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                  child: Row(
+                    children: [
+                      // Institution logo
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.12),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: institutionLogoUrl.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  institutionLogoUrl,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) =>
+                                      _logoFallback(institution),
+                                ),
+                              )
+                            : _logoFallback(institution),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              institution,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: 0.1,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.22),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                minAps > 0 ? 'APS $minAps' : 'Open',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 4),
-                if (_matchLabel.isNotEmpty)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _matchColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      _matchLabel,
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: _matchColor),
-                    ),
+
+                // ── Body ─────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        courseName,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                          height: 1.25,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _reasonLabel,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 10),
+                      if (_matchLabel.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _matchColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: _matchColor.withOpacity(0.35)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(_matchIcon,
+                                  size: 12, color: _matchColor),
+                              const SizedBox(width: 5),
+                              Text(
+                                _matchLabel,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: _matchColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
+                ),
               ],
             ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _logoFallback(String inst) {
+    final initial = inst.isNotEmpty ? inst[0].toUpperCase() : 'U';
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+          color: AppColors.primary,
         ),
       ),
     );
@@ -911,7 +1020,7 @@ class _BursaryTeaserList extends ConsumerWidget {
         }).toList()
           ..sort((a, b) => (a.bursary.applicationDeadline ?? '')
               .compareTo(b.bursary.applicationDeadline ?? ''));
-        final top = upcoming.take(3).toList();
+        final top = upcoming.take(2).toList();
         if (top.isEmpty) {
           return Container(
             padding: const EdgeInsets.all(14),

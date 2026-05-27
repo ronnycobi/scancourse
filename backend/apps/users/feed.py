@@ -59,8 +59,10 @@ class HomeFeedView(APIView):
         # ── 5. Profile completeness ─────────────────────────────────
         items.extend(self._profile_nudge(u))
 
-        # ── 6. Bursary recommendations ──────────────────────────────
-        items.extend(self._bursary_recommendation(u))
+        # NOTE: _bursary_recommendation removed from the home feed.
+        # 'Recommended Bursaries' carousel + 'Bursaries Closing Soon'
+        # cover the same job with better visuals on the home screen,
+        # so the For You card felt redundant.
 
         # ── 7. APS celebration ──────────────────────────────────────
         items.extend(self._aps_celebration(u))
@@ -333,16 +335,16 @@ class HomeFeedView(APIView):
                 'deep_link': '/motivation-letter',
             },
             {
-                'title': 'Bookmark courses you like',
-                'body': 'Saved courses move into "My Applications" with deadline reminders.',
-                'cta': 'Browse',
-                'deep_link': '/courses',
-            },
-            {
                 'title': 'Track every application',
                 'body': 'Mark courses + bursaries you\'re applying to so deadlines never slip.',
                 'cta': 'Open tracker',
                 'deep_link': '/applications',
+            },
+            {
+                'title': 'See your APS journey',
+                'body': 'Track how your APS has improved over time and what it unlocks.',
+                'cta': 'View journey',
+                'deep_link': '/aps-journey',
             },
         ]
         today_index = timezone.now().toordinal() + (user.id or 0)
