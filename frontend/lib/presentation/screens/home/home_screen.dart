@@ -167,11 +167,32 @@ class HomeScreen extends ConsumerWidget {
                       error: (_, __) => const SizedBox.shrink(),
                     ),
 
-                    // For You feed — ranked cards driven by server signals.
-                    // Sits ABOVE quick actions so it's the first thing the
-                    // user sees on every visit. The list refreshes when we
-                    // pull-to-refresh the home screen.
+                    // For You feed (capped to 3 cards on home — see all
+                    // via the notifications inbox).
                     const _ForYouFeed(),
+
+                    // Recommended courses sit RIGHT ABOVE Quick Actions
+                    // so the personalised content is the first thing
+                    // visible after the nudges. Previously this section
+                    // lived below Quick Actions + Pathways + Open unis
+                    // which meant users had to scroll past three other
+                    // sections to find their actual matches.
+                    if (hasAps) ...[
+                      SectionHeader(
+                          title: 'Recommended for You',
+                          actionLabel: 'See all',
+                          onAction: () => context.go('/courses')),
+                      const SizedBox(height: 12),
+                      const _RecommendedCourses(),
+                      const SizedBox(height: 24),
+                    ] else if (!hasUploadedSomething) ...[
+                      // Show the unlock CTA only when there's nothing at
+                      // all on file. If a report is uploading / OCR is
+                      // running, we already show a busy spinner above —
+                      // don't double up with another "scan now" prompt.
+                      const _UnlockRecommendationsCta(),
+                      const SizedBox(height: 24),
+                    ],
 
                     // Quick Actions
                     const SectionHeader(title: 'Quick Actions'),
@@ -207,27 +228,6 @@ class HomeScreen extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 24),
-
-                    // Personalised sections — only meaningful once the
-                    // user has APS data. Without it we can't honestly say
-                    // "Qualify" or "Recommended" anything, so show a clear
-                    // CTA instead of misleading badges.
-                    if (hasAps) ...[
-                      SectionHeader(
-                          title: 'Recommended for You',
-                          actionLabel: 'See all',
-                          onAction: () => context.go('/courses')),
-                      const SizedBox(height: 12),
-                      const _RecommendedCourses(),
-                      const SizedBox(height: 24),
-                    ] else if (!hasUploadedSomething) ...[
-                      // Show the unlock CTA only when there's nothing at
-                      // all on file. If a report is uploading / OCR is
-                      // running, we already show a busy spinner above —
-                      // don't double up with another "scan now" prompt.
-                      const _UnlockRecommendationsCta(),
-                      const SizedBox(height: 24),
-                    ],
 
                     const SectionHeader(title: 'Explore Pathways'),
                     const SizedBox(height: 12),
@@ -1124,10 +1124,13 @@ class _UnlockRecommendationsCta extends StatelessWidget {
 }
 
 /// "For You" section — server-ranked list of actionable cards.
-/// Hidden entirely when the feed is empty (e.g. brand new account
-/// before scanning anything) so the home screen doesn't feel sparse.
+/// Caps at 3 items on the home screen so the rest of the page (the
+/// real recommended courses + bursaries) is reachable without
+/// scrolling through a wall of nudges.
 class _ForYouFeed extends ConsumerWidget {
   const _ForYouFeed();
+
+  static const _maxItems = 3;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1135,8 +1138,10 @@ class _ForYouFeed extends ConsumerWidget {
     return async.when(
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
-      data: (items) {
-        if (items.isEmpty) return const SizedBox.shrink();
+      data: (allItems) {
+        if (allItems.isEmpty) return const SizedBox.shrink();
+        final items = allItems.take(_maxItems).toList();
+        final hasMore = allItems.length > _maxItems;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1154,12 +1159,24 @@ class _ForYouFeed extends ConsumerWidget {
                       color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text('${items.length}',
+                    child: Text('${allItems.length}',
                         style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                             color: AppColors.primary)),
                   ),
+                  const Spacer(),
+                  if (hasMore)
+                    TextButton(
+                      onPressed: () => context.push('/notifications'),
+                      style: TextButton.styleFrom(
+                        minimumSize: Size.zero,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('See all'),
+                    ),
                 ],
               ),
             ),

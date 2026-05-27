@@ -48,8 +48,10 @@ class HomeFeedView(APIView):
         # ── 2. URGENT: saved course offerings closing in ≤ 14 days ──
         items.extend(self._course_deadlines(u, today))
 
-        # ── 3. New matches if user has APS ──────────────────────────
-        items.extend(self._new_matches(u))
+        # NOTE: '_new_matches' generator removed — the count was
+        # confusing ('1300 new courses match your APS' isn't actionable
+        # and felt spammy). Recommended-for-You carousel on the home
+        # screen does this job better with real course previews.
 
         # ── 4. Latest improvement plan summary ──────────────────────
         items.extend(self._improvement_nudge(u))
