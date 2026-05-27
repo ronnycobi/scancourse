@@ -256,7 +256,18 @@ def send_aps_improvement_nudge():
     return fired
 
 
-# ── Trigger 5: weekly Sunday digest ────────────────────────────────────
+# ── Trigger 5a: weekly email digest ────────────────────────────────────
+
+@shared_task
+def send_weekly_digest_emails():
+    """Sunday 19:00 — sends the personalised HTML email digest to every
+    active user with an email address. Skips users with nothing
+    meaningful to report this week so we don't burn inbox goodwill."""
+    from .digest import send_weekly_digests_for_all
+    return send_weekly_digests_for_all()
+
+
+# ── Trigger 5b: weekly Sunday push digest (kept for FCM) ───────────────
 
 @shared_task
 def send_weekly_digest():

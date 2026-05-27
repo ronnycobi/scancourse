@@ -1,0 +1,33 @@
+{{ headline }} — {{ name }}
+
+Hi {{ name }},
+
+Here's your weekly summary from Scancourse.
+
+{% if current_aps %}YOUR APS
+========
+Current APS: {{ current_aps }}/42{% if aps_delta > 0 %} (+{{ aps_delta }} since last scan){% endif %}
+
+{% endif %}{% if saved_bursaries_closing %}BURSARY DEADLINES
+==================
+{% for b in saved_bursaries_closing %}- {{ b.name }} — closes in {{ b.days }} day{{ b.days|pluralize }}
+{% endfor %}
+{% endif %}{% if saved_courses_closing %}COURSE DEADLINES
+================
+{% for c in saved_courses_closing %}- {{ c.name }} ({{ c.institution }}) — closes in {{ c.days }} day{{ c.days|pluralize }}
+{% endfor %}
+{% endif %}{% if new_matches_count %}NEW MATCHES
+===========
+{{ new_matches_count }} new course{{ new_matches_count|pluralize }} now match your APS.
+
+{% endif %}TIP OF THE WEEK
+===============
+{{ tip }}
+
+Open Scancourse: {{ view_link }}
+
+---
+You're getting this because you signed up for Scancourse.
+Manage preferences or unsubscribe: https://scancourse.co.za/legal/contact/
+
+© Scancourse · info@scancourse.co.za

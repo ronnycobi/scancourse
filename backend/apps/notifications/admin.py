@@ -38,7 +38,7 @@ class NotificationAdmin(admin.ModelAdmin):
                 level=messages.WARNING)
 
 
-# Custom admin action accessible on the User list for ad-hoc pings.
+# Custom admin actions accessible on the User list for ad-hoc pings.
 @admin.action(description='🔔 Send a test push to selected users')
 def send_test_push_to_users(modeladmin, request, queryset):
     sent = 0
@@ -54,10 +54,37 @@ def send_test_push_to_users(modeladmin, request, queryset):
         level=messages.SUCCESS if sent else messages.WARNING)
 
 
-# Bolt the action onto the User admin (registered in apps/users/admin.py)
+@admin.action(description='📧 Send a test weekly-digest EMAIL to selected users')
+def send_test_digest_email(modeladmin, request, queryset):
+    from .digest import send_digest
+    sent = 0
+    skipped = 0
+    for user in queryset:
+        if not user.email:
+            skipped += 1
+            continue
+        if send_digest(user):
+            sent += 1
+        else:
+            skipped += 1
+    if sent:
+        modeladmin.message_user(request,
+            f'Sent test digest to {sent} user(s). '
+            f'{skipped} skipped (no email or no content).',
+            level=messages.SUCCESS)
+    else:
+        modeladmin.message_user(request,
+            'Nothing sent — selected users had no email or no content for this week.',
+            level=messages.WARNING)
+
+
+# Bolt the actions onto the User admin (registered in apps/users/admin.py)
 User = get_user_model()
 try:
     user_admin = admin.site._registry[User]
-    user_admin.actions = list(getattr(user_admin, 'actions', []) or []) + [send_test_push_to_users]
+    user_admin.actions = list(getattr(user_admin, 'actions', []) or []) + [
+        send_test_push_to_users,
+        send_test_digest_email,
+    ]
 except KeyError:
     pass

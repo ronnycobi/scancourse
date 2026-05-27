@@ -1,0 +1,190 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ headline }}</title>
+</head>
+<body style="margin:0;padding:0;background:#F2F4F7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0F172A;-webkit-font-smoothing:antialiased;">
+
+  <!-- Preheader (hidden — shows next to subject in inbox previews) -->
+  <div style="display:none;max-height:0;overflow:hidden;color:transparent;">
+    {% if current_aps %}APS {{ current_aps }} · {% endif %}{% if saved_bursaries_closing %}{{ saved_bursaries_closing|length }} bursaries closing soon · {% endif %}{% if new_matches_count %}{{ new_matches_count }} new course matches{% endif %}
+  </div>
+
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#F2F4F7;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%;background:#FFFFFF;border-radius:16px;overflow:hidden;">
+
+          <!-- Brand header -->
+          <tr>
+            <td style="padding:24px 28px 8px;border-bottom:1px solid #E2E8F0;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:18px;font-weight:800;color:#1E40AF;">
+                    Scancourse
+                  </td>
+                  <td align="right" style="font-size:12px;color:#94A3B8;">
+                    Weekly digest
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Hi headline -->
+          <tr>
+            <td style="padding:28px 28px 12px;">
+              <h1 style="margin:0 0 6px;font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#0F172A;">
+                Hi {{ name }} 👋
+              </h1>
+              <p style="margin:0;color:#475569;font-size:14px;line-height:1.55;">
+                Here's what's worth your attention this week.
+              </p>
+            </td>
+          </tr>
+
+          <!-- APS hero -->
+          {% if current_aps %}
+          <tr>
+            <td style="padding:0 28px 12px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:linear-gradient(135deg,#1E40AF,#1E3A8A);border-radius:14px;">
+                <tr>
+                  <td style="padding:18px 20px;color:#FFFFFF;">
+                    <div style="font-size:11px;letter-spacing:.5px;font-weight:700;color:rgba(255,255,255,0.75);text-transform:uppercase;">Your current APS</div>
+                    <div style="font-size:38px;font-weight:900;line-height:1;margin-top:4px;">
+                      {{ current_aps }} <span style="font-size:16px;font-weight:700;color:rgba(255,255,255,0.7);">/42</span>
+                      {% if aps_delta > 0 %}
+                      <span style="font-size:13px;font-weight:800;background:rgba(255,255,255,0.18);padding:4px 10px;border-radius:20px;margin-left:6px;">+{{ aps_delta }} APS</span>
+                      {% endif %}
+                    </div>
+                    {% if aps_delta > 0 %}
+                    <div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.85);">
+                      Up {{ aps_delta }} since your last scan. 🎉
+                    </div>
+                    {% endif %}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- Bursary deadlines -->
+          {% if saved_bursaries_closing %}
+          <tr>
+            <td style="padding:18px 28px 6px;">
+              <h2 style="margin:0 0 10px;font-size:15px;font-weight:800;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;">
+                💰 Bursary deadlines
+              </h2>
+              {% for b in saved_bursaries_closing %}
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:8px;background:#F8FAFC;border-radius:10px;border:1px solid #E2E8F0;">
+                <tr>
+                  <td style="padding:12px 14px;">
+                    <div style="font-size:14px;font-weight:700;color:#0F172A;line-height:1.3;">
+                      {{ b.name }}
+                    </div>
+                    <div style="font-size:12px;color:#475569;margin-top:2px;">
+                      Closes in {{ b.days }} day{{ b.days|pluralize }}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              {% endfor %}
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- Course deadlines -->
+          {% if saved_courses_closing %}
+          <tr>
+            <td style="padding:6px 28px 6px;">
+              <h2 style="margin:0 0 10px;font-size:15px;font-weight:800;color:#0F172A;text-transform:uppercase;letter-spacing:.5px;">
+                🎓 Course deadlines
+              </h2>
+              {% for c in saved_courses_closing %}
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:8px;background:#F8FAFC;border-radius:10px;border:1px solid #E2E8F0;">
+                <tr>
+                  <td style="padding:12px 14px;">
+                    <div style="font-size:14px;font-weight:700;color:#0F172A;line-height:1.3;">
+                      {{ c.name }}
+                    </div>
+                    <div style="font-size:12px;color:#475569;margin-top:2px;">
+                      {{ c.institution }} · closes in {{ c.days }} day{{ c.days|pluralize }}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              {% endfor %}
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- New matches -->
+          {% if new_matches_count %}
+          <tr>
+            <td style="padding:6px 28px 12px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#DBEAFE;border-radius:12px;">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <div style="font-size:14px;font-weight:800;color:#1E40AF;">
+                      {{ new_matches_count }} new course{{ new_matches_count|pluralize }} match your APS
+                    </div>
+                    <div style="font-size:12px;color:#1E40AF;opacity:.85;margin-top:2px;">
+                      Tap the button below to explore programmes you now qualify for.
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- Tip -->
+          <tr>
+            <td style="padding:6px 28px 16px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#F8FAFC;border-left:3px solid #F59E0B;border-radius:8px;">
+                <tr>
+                  <td style="padding:12px 14px;">
+                    <div style="font-size:11px;letter-spacing:.5px;font-weight:800;color:#F59E0B;text-transform:uppercase;">Tip of the week</div>
+                    <div style="font-size:13px;color:#0F172A;margin-top:4px;line-height:1.5;">
+                      {{ tip }}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA -->
+          <tr>
+            <td align="center" style="padding:6px 28px 24px;">
+              <a href="{{ view_link }}" style="display:inline-block;background:#1E40AF;color:#FFFFFF;font-size:14px;font-weight:700;padding:12px 24px;border-radius:10px;text-decoration:none;">
+                Open Scancourse
+              </a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 28px;background:#F8FAFC;border-top:1px solid #E2E8F0;border-radius:0 0 16px 16px;">
+              <div style="font-size:11px;color:#94A3B8;line-height:1.6;text-align:center;">
+                You're getting this because you signed up for {{ site_name }}.<br/>
+                Reply to this email or visit
+                <a href="https://scancourse.co.za/legal/contact/" style="color:#1E40AF;text-decoration:none;">scancourse.co.za/legal/contact</a>
+                to manage your preferences or unsubscribe.
+              </div>
+              <div style="font-size:11px;color:#94A3B8;text-align:center;margin-top:10px;">
+                © Scancourse · scancourse.co.za · info@scancourse.co.za
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -223,8 +223,14 @@ CELERY_BEAT_SCHEDULE = {
     },
     'weekly-digest': {
         'task': 'apps.notifications.tasks.send_weekly_digest',
-        # Sundays at 19:00 — when learners plan their week
+        # Sundays at 19:00 — when learners plan their week (FCM push)
         'schedule': crontab(hour=19, minute=0, day_of_week='sun'),
+    },
+    'weekly-digest-email': {
+        'task': 'apps.notifications.tasks.send_weekly_digest_emails',
+        # Sundays at 19:05 — five minutes after the push so they don't
+        # arrive at the same instant
+        'schedule': crontab(hour=19, minute=5, day_of_week='sun'),
     },
 }
 
