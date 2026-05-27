@@ -24,6 +24,9 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStateProvider).user;
     final apsAsync = ref.watch(latestApsProvider);
+    // 'Qualify' / 'Recommended' badges only make sense once we know the
+    // user's APS. Until they scan, gate any APS-dependent sections.
+    final hasAps = apsAsync.valueOrNull != null;
 
     return Scaffold(
       body: SafeArea(
@@ -192,11 +195,22 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
 
-                    // Sections
-                    SectionHeader(title: 'Recommended for You', actionLabel: 'See all', onAction: () => context.go('/courses')),
-                    const SizedBox(height: 12),
-                    const _RecommendedCourses(),
-                    const SizedBox(height: 24),
+                    // Personalised sections — only meaningful once the
+                    // user has APS data. Without it we can't honestly say
+                    // "Qualify" or "Recommended" anything, so show a clear
+                    // CTA instead of misleading badges.
+                    if (hasAps) ...[
+                      SectionHeader(
+                          title: 'Recommended for You',
+                          actionLabel: 'See all',
+                          onAction: () => context.go('/courses')),
+                      const SizedBox(height: 12),
+                      const _RecommendedCourses(),
+                      const SizedBox(height: 24),
+                    ] else ...[
+                      const _UnlockRecommendationsCta(),
+                      const SizedBox(height: 24),
+                    ],
 
                     const SectionHeader(title: 'Explore Pathways'),
                     const SizedBox(height: 12),
@@ -208,10 +222,17 @@ class HomeScreen extends ConsumerWidget {
                     _UniversitiesOpenBanner(onTap: () => context.go('/courses')),
                     const SizedBox(height: 24),
 
-                    SectionHeader(title: 'Recommended Bursaries', actionLabel: 'See all', onAction: () => context.go('/bursaries')),
-                    const SizedBox(height: 12),
-                    const _RecommendedBursaries(),
-                    const SizedBox(height: 24),
+                    // 'Recommended' for bursaries also requires APS for
+                    // honest matching. Without APS we show 'Browse all'.
+                    if (hasAps) ...[
+                      SectionHeader(
+                          title: 'Recommended Bursaries',
+                          actionLabel: 'See all',
+                          onAction: () => context.go('/bursaries')),
+                      const SizedBox(height: 12),
+                      const _RecommendedBursaries(),
+                      const SizedBox(height: 24),
+                    ],
 
                     SectionHeader(title: 'Bursaries Closing Soon', actionLabel: 'See all', onAction: () => context.go('/bursaries')),
                     const SizedBox(height: 12),
@@ -999,6 +1020,87 @@ class _BursaryTeaser extends StatelessWidget {
                 size: 14, color: AppColors.textHint),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Big CTA shown when the user has no APS yet. Replaces the misleading
+/// "Recommended for You / Recommended Bursaries" sections because we
+/// can't honestly recommend without knowing their marks.
+class _UnlockRecommendationsCta extends StatelessWidget {
+  const _UnlockRecommendationsCta();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.25),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.auto_awesome, color: Colors.white, size: 22),
+              SizedBox(width: 8),
+              Text('Unlock personalised matches',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Scan your report card or type your marks in — we\'ll calculate your APS and show only the courses and bursaries you actually qualify for.',
+            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => context.push('/scanner'),
+                  icon: const Icon(Icons.document_scanner_outlined, size: 16),
+                  label: const Text('Scan'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.primary,
+                    minimumSize: const Size(0, 44),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => context.push('/manual-entry'),
+                  icon: const Icon(Icons.edit_outlined,
+                      size: 16, color: Colors.white),
+                  label: const Text('Enter marks',
+                      style: TextStyle(color: Colors.white)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white70),
+                    minimumSize: const Size(0, 44),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
