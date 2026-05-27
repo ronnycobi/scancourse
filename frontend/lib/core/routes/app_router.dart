@@ -31,6 +31,7 @@ import '../../presentation/screens/settings/settings_screen.dart';
 import '../../presentation/screens/notifications/notifications_screen.dart';
 import '../../presentation/screens/saved/saved_items_screen.dart';
 import '../../presentation/screens/applications/applications_screen.dart';
+import '../../presentation/screens/applications/applications_kanban_screen.dart';
 import '../../presentation/screens/legal/legal_screen.dart';
 import '../../presentation/screens/legal/contact_form_screen.dart';
 import '../../presentation/screens/home/main_shell.dart';
@@ -117,7 +118,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/aps-journey', builder: (_, __) => const ApsJourneyScreen()),
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/saved', builder: (_, __) => const SavedItemsScreen()),
-      GoRoute(path: '/applications', builder: (_, __) => const ApplicationsScreen()),
+      GoRoute(path: '/applications', builder: (_, __) => const ApplicationsKanbanScreen()),
+      // Legacy flat-list view kept available at /applications/list for now.
+      GoRoute(path: '/applications/list', builder: (_, __) => const ApplicationsScreen()),
       GoRoute(
         path: '/legal/:doc',
         builder: (_, state) {
