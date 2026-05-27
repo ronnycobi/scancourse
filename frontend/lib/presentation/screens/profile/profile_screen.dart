@@ -189,6 +189,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   children: [
                     // Personal data — things that are YOURS, not settings.
                     ListTile(
+                      leading: const Icon(Icons.show_chart_rounded,
+                          color: AppColors.primary),
+                      title: const Text('My APS Journey'),
+                      subtitle: const Text(
+                          'Track how your APS has grown over time',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () => context.push('/aps-journey'),
+                    ),
+                    ListTile(
                       leading: const Icon(Icons.description_outlined, color: AppColors.primary),
                       title: const Text('My Reports'),
                       subtitle: const Text('Uploaded report cards',

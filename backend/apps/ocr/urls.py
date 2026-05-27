@@ -11,4 +11,5 @@ urlpatterns = [
     path('manual/', views.ManualEntryView.as_view(), name='manual-entry'),
     path('aps/', views.LatestAPSView.as_view(), name='aps-latest'),
     path('aps/history/', views.APSHistoryView.as_view(), name='aps-history'),
+    path('aps/journey/', views.APSJourneyView.as_view(), name='aps-journey'),
 ]

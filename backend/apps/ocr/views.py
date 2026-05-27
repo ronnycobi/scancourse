@@ -127,6 +127,144 @@ class LatestAPSView(APIView):
         })
 
 
+class APSJourneyView(APIView):
+    """
+    GET /api/v1/ocr/aps/journey/
+
+    Returns the user's APS progression over time, plus growth metrics
+    and an "unlocked courses" count comparing their first APS to their
+    latest. Used by the APS Journey screen.
+
+    Response shape:
+      {
+        "current_aps": 34,
+        "growth": {
+          "first_aps": 28,
+          "latest_aps": 34,
+          "delta": 6,
+          "delta_label": "+6 APS",
+          "since": "2026-02-12T...",
+        },
+        "timeline": [
+          {"date": "...", "total_aps": 28, "source_id": 1},
+          {"date": "...", "total_aps": 31, "source_id": 2},
+          ...
+        ],
+        "subject_movers": [
+          {"subject": "Mathematics", "old_mark": 55, "new_mark": 70, "delta": 15},
+          ...top 3
+        ],
+        "courses_unlocked": {
+          "first_count": 312,
+          "latest_count": 487,
+          "delta": 175,
+        }
+      }
+    """
+    def get(self, request):
+        results = list(
+            APSResult.objects.filter(user=request.user).order_by('created_at')
+        )
+        if not results:
+            return Response({
+                'current_aps': 0,
+                'timeline': [],
+                'growth': None,
+                'subject_movers': [],
+                'courses_unlocked': None,
+            })
+
+        first = results[0]
+        latest = results[-1]
+
+        # Timeline
+        timeline = [
+            {
+                'date': r.created_at.isoformat(),
+                'total_aps': r.total_aps,
+                'source_id': r.id,
+            }
+            for r in results
+        ]
+
+        # Growth
+        growth = {
+            'first_aps': first.total_aps,
+            'latest_aps': latest.total_aps,
+            'delta': latest.total_aps - first.total_aps,
+            'delta_label': self._delta_label(latest.total_aps - first.total_aps),
+            'since': first.created_at.isoformat(),
+        }
+
+        # Subject movers — compare first report's subjects to latest's
+        subject_movers = self._compute_subject_movers(first, latest)
+
+        # Courses unlocked — how many more they qualify for now
+        from apps.courses.models import CourseOffering
+        first_count = CourseOffering.objects.filter(
+            min_aps__lte=first.total_aps).count()
+        latest_count = CourseOffering.objects.filter(
+            min_aps__lte=latest.total_aps).count()
+        unlocked = {
+            'first_count': first_count,
+            'latest_count': latest_count,
+            'delta': latest_count - first_count,
+        }
+
+        return Response({
+            'current_aps': latest.total_aps,
+            'growth': growth if len(results) > 1 else None,
+            'timeline': timeline,
+            'subject_movers': subject_movers,
+            'courses_unlocked': unlocked if len(results) > 1 else None,
+        })
+
+    @staticmethod
+    def _delta_label(delta: int) -> str:
+        if delta > 0:
+            return f'+{delta} APS'
+        if delta < 0:
+            return f'{delta} APS'
+        return 'No change'
+
+    @staticmethod
+    def _compute_subject_movers(first, latest):
+        """Top 3 subjects with the biggest mark improvement between the
+        first and latest APS result."""
+        def name_to_mark(result):
+            out = {}
+            for s in (result.subjects_data or []):
+                if not isinstance(s, dict):
+                    continue
+                name = (s.get('normalized_name') or s.get('name') or '').strip()
+                mark = s.get('mark')
+                try:
+                    mark = int(mark)
+                except (TypeError, ValueError):
+                    continue
+                if name and 0 <= mark <= 100:
+                    out[name] = mark
+            return out
+
+        first_subjects = name_to_mark(first)
+        latest_subjects = name_to_mark(latest)
+        movers = []
+        for name, latest_mark in latest_subjects.items():
+            old = first_subjects.get(name)
+            if old is None:
+                continue
+            delta = latest_mark - old
+            if delta > 0:
+                movers.append({
+                    'subject': name,
+                    'old_mark': old,
+                    'new_mark': latest_mark,
+                    'delta': delta,
+                })
+        movers.sort(key=lambda m: m['delta'], reverse=True)
+        return movers[:3]
+
+
 class ImagePrecheckView(APIView):
     """
     Fast Gemini quality check BEFORE the user commits to an upload.

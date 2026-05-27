@@ -65,4 +65,10 @@ class OcrRepository {
     final response = await _api.get('/courses/$courseId/explain-gap/');
     return Map<String, dynamic>.from(response.data as Map);
   }
+
+  /// APS Journey — timeline, growth, subject movers, courses unlocked.
+  Future<Map<String, dynamic>> getApsJourney() async {
+    final response = await _api.get('/ocr/aps/journey/');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
 }
