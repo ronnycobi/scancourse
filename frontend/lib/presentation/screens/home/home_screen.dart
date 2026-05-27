@@ -83,68 +83,21 @@ class HomeScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Hero "Calculate your APS" banner — only shows when
-                    // the user hasn't uploaded anything yet. Once they
-                    // have a report (even if OCR hasn't finished and APS
-                    // is still 0), this disappears and the actual APS
-                    // dashboard card takes its place below.
-                    if (!hasUploadedSomething) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppColors.primary, AppColors.primaryDark],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.document_scanner_rounded, color: Colors.white, size: 32),
-                            const SizedBox(height: 12),
-                            Text('Calculate your APS',
-                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white)),
-                            const SizedBox(height: 6),
-                            Text('Upload your report card to find matching courses',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70)),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _HeroButton(
-                                    icon: Icons.upload_file_outlined,
-                                    label: 'Upload',
-                                    onTap: () => context.push('/scanner'),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: _HeroButton(
-                                    icon: Icons.camera_alt_outlined,
-                                    label: 'Camera',
-                                    onTap: () => context.push('/scanner'),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: _HeroButton(
-                                    icon: Icons.edit_outlined,
-                                    label: 'Enter Marks',
-                                    onTap: () => context.push('/manual-entry'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
+                    // Smart APS hero — the single blue card at the top
+                    // of home. Adapts to the user's state:
+                    //   no upload yet  →  'Calculate your APS' + upload/camera/manual buttons
+                    //   uploading      →  hidden (the small APS-score card below covers it)
+                    //   has APS, matric→  'Your APS is X. Time to apply.' + see-matches button
+                    //   has APS, gr10/11→ 'Your APS is X. Push it higher?' + see-plan button
+                    _ApsHero(
+                      apsAsync: apsAsync,
+                      hasUploadedSomething: hasUploadedSomething,
+                      userGrade: user?.grade,
+                    ),
+                    const SizedBox(height: 24),
 
-                    // APS Dashboard Cards
+                    // Compact APS score breakdown card (subject pills).
+                    // Sits BELOW the smart hero. Edit-marks chip lives here.
                     apsAsync.when(
                       data: (aps) => aps != null
                           ? Column(
@@ -159,17 +112,13 @@ class HomeScreen extends ConsumerWidget {
                                     textStyle: const TextStyle(fontSize: 14),
                                   ),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 16),
                               ],
                             )
                           : const SizedBox.shrink(),
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
-
-                    // For You feed (capped to 3 cards on home — see all
-                    // via the notifications inbox).
-                    const _ForYouFeed(),
 
                     // Recommended courses sit RIGHT ABOVE Quick Actions
                     // so the personalised content is the first thing
@@ -1146,6 +1095,210 @@ class _BursaryTeaser extends StatelessWidget {
                 size: 14, color: AppColors.textHint),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Single blue hero at the top of the home screen. State-machine that
+/// adapts to whether the user has an APS and what grade they're in,
+/// so the message always lines up with what they should do next.
+class _ApsHero extends StatelessWidget {
+  final AsyncValue apsAsync;
+  final bool hasUploadedSomething;
+  final String? userGrade;
+
+  const _ApsHero({
+    required this.apsAsync,
+    required this.hasUploadedSomething,
+    required this.userGrade,
+  });
+
+  bool get _isMatricOrPostSchool =>
+      userGrade == 'grade_12' ||
+      userGrade == 'gap_year' ||
+      userGrade == 'other';
+
+  @override
+  Widget build(BuildContext context) {
+    final aps = apsAsync.valueOrNull;
+    // While the user is mid-upload (report exists, OCR still running)
+    // we want a calm pulse, not a CTA. The ApsScoreCard below will
+    // pop in once APS is computed.
+    if (aps == null && hasUploadedSomething) {
+      return _ProcessingPulse();
+    }
+    // No APS, no reports → upload prompt
+    if (aps == null) {
+      return _heroShell(
+        context,
+        icon: Icons.document_scanner_rounded,
+        title: 'Calculate your APS',
+        body: 'Upload your report card to find matching courses.',
+        actions: [
+          _HeroButton(
+            icon: Icons.upload_file_outlined,
+            label: 'Upload',
+            onTap: () => context.push('/scanner'),
+          ),
+          _HeroButton(
+            icon: Icons.camera_alt_outlined,
+            label: 'Camera',
+            onTap: () => context.push('/scanner'),
+          ),
+          _HeroButton(
+            icon: Icons.edit_outlined,
+            label: 'Enter Marks',
+            onTap: () => context.push('/manual-entry'),
+          ),
+        ],
+      );
+    }
+    // Has APS. Branch on grade.
+    if (_isMatricOrPostSchool) {
+      return _heroShell(
+        context,
+        icon: Icons.celebration_rounded,
+        title: 'Your APS is ${aps.totalAps}. Time to apply.',
+        body:
+            'See every course and bursary you qualify for, and start tracking your applications.',
+        actions: [
+          _HeroButton(
+            icon: Icons.search,
+            label: 'See matches',
+            onTap: () => context.push('/courses'),
+          ),
+          _HeroButton(
+            icon: Icons.assignment_outlined,
+            label: 'My applications',
+            onTap: () => context.push('/applications'),
+          ),
+        ],
+      );
+    }
+    // Grade 10/11 (or grade unset) — still in school, can improve.
+    return _heroShell(
+      context,
+      icon: Icons.trending_up_rounded,
+      title: 'Your APS is ${aps.totalAps}. Push it higher?',
+      body:
+          'Tap to see 3 specific things you can do this term to lift your marks.',
+      actions: [
+        _HeroButton(
+          icon: Icons.psychology_alt_outlined,
+          label: 'See plan',
+          onTap: () => context.push('/improvement-plan'),
+        ),
+        _HeroButton(
+          icon: Icons.show_chart_rounded,
+          label: 'APS Journey',
+          onTap: () => context.push('/aps-journey'),
+        ),
+      ],
+    );
+  }
+
+  Widget _heroShell(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String body,
+    required List<Widget> actions,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white, size: 32),
+          const SizedBox(height: 12),
+          Text(title,
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text(body,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: Colors.white70, height: 1.4)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              for (int i = 0; i < actions.length; i++) ...[
+                Expanded(child: actions[i]),
+                if (i < actions.length - 1) const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Calm pulse shown while the user's first report is being processed —
+/// avoids the awkward "do nothing, also do something" state.
+class _ProcessingPulse extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text('Reading your report card…',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800)),
+                SizedBox(height: 4),
+                Text(
+                  'This usually takes 10–30 seconds. Pull to refresh.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
