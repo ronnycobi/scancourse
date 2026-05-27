@@ -64,3 +64,4 @@ celerybeat.pid
 mockup/screenshots/*.png
 *.apk
 *.aab
+play_store/screenshots/
