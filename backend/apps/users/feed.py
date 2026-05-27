@@ -333,16 +333,16 @@ class HomeFeedView(APIView):
                 'deep_link': '/motivation-letter',
             },
             {
-                'title': 'Compare yourself to peers',
-                'body': 'Your APS rank against students with similar marks helps you plan smarter applications.',
-                'cta': 'See matches',
-                'deep_link': '/courses',
-            },
-            {
                 'title': 'Bookmark courses you like',
                 'body': 'Saved courses move into "My Applications" with deadline reminders.',
                 'cta': 'Browse',
                 'deep_link': '/courses',
+            },
+            {
+                'title': 'Track every application',
+                'body': 'Mark courses + bursaries you\'re applying to so deadlines never slip.',
+                'cta': 'Open tracker',
+                'deep_link': '/applications',
             },
         ]
         today_index = timezone.now().toordinal() + (user.id or 0)
