@@ -83,42 +83,13 @@ class HomeScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Smart APS hero — the single blue card at the top
-                    // of home. Adapts to the user's state:
-                    //   no upload yet  →  'Calculate your APS' + upload/camera/manual buttons
-                    //   uploading      →  hidden (the small APS-score card below covers it)
-                    //   has APS, matric→  'Your APS is X. Time to apply.' + see-matches button
-                    //   has APS, gr10/11→ 'Your APS is X. Push it higher?' + see-plan button
+                    // Smart APS hero — single blue card, state-machined.
                     _ApsHero(
                       apsAsync: apsAsync,
-                      hasUploadedSomething: hasUploadedSomething,
+                      reportsAsync: reportsAsync,
                       userGrade: user?.grade,
                     ),
                     const SizedBox(height: 24),
-
-                    // Compact APS score breakdown card (subject pills).
-                    // Sits BELOW the smart hero. Edit-marks chip lives here.
-                    apsAsync.when(
-                      data: (aps) => aps != null
-                          ? Column(
-                              children: [
-                                ApsScoreCard(totalAps: aps.totalAps, subjects: aps.subjects),
-                                OutlinedButton.icon(
-                                  onPressed: () => context.push('/manual-entry'),
-                                  icon: const Icon(Icons.edit_outlined, size: 16),
-                                  label: const Text('Edit Marks'),
-                                  style: OutlinedButton.styleFrom(
-                                    minimumSize: const Size(double.infinity, 44),
-                                    textStyle: const TextStyle(fontSize: 14),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                              ],
-                            )
-                          : const SizedBox.shrink(),
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
 
                     // Recommended courses sit RIGHT ABOVE Quick Actions
                     // so the personalised content is the first thing
@@ -1105,12 +1076,12 @@ class _BursaryTeaser extends StatelessWidget {
 /// so the message always lines up with what they should do next.
 class _ApsHero extends StatelessWidget {
   final AsyncValue apsAsync;
-  final bool hasUploadedSomething;
+  final AsyncValue reportsAsync;
   final String? userGrade;
 
   const _ApsHero({
     required this.apsAsync,
-    required this.hasUploadedSomething,
+    required this.reportsAsync,
     required this.userGrade,
   });
 
@@ -1122,12 +1093,44 @@ class _ApsHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final aps = apsAsync.valueOrNull;
-    // While the user is mid-upload (report exists, OCR still running)
-    // we want a calm pulse, not a CTA. The ApsScoreCard below will
-    // pop in once APS is computed.
-    if (aps == null && hasUploadedSomething) {
-      return _ProcessingPulse();
+    final apsLoading = apsAsync.isLoading;
+    final reportsLoading = reportsAsync.isLoading;
+    final hasReports =
+        (reportsAsync.valueOrNull as List?)?.isNotEmpty ?? false;
+
+    // Only show the processing pulse during ACTUAL network loading,
+    // not when both have settled and APS is just 0. Previously this
+    // looped forever because `apsAsync.valueOrNull` is null both
+    // during loading AND when APS=0.
+    if (apsLoading || reportsLoading) {
+      return _ProcessingPulse(
+          message: 'Loading your dashboard…');
     }
+
+    // Has reports but APS still 0 — OCR couldn't read marks. Don't
+    // tell them "calculate your APS" (they already tried). Tell them
+    // we struggled and offer to retry / edit manually.
+    if (aps == null && hasReports) {
+      return _heroShell(
+        context,
+        icon: Icons.warning_amber_rounded,
+        title: 'We couldn\'t read your marks',
+        body: 'OCR didn\'t pick anything up. Open your report and add the marks, or scan a clearer photo.',
+        actions: [
+          _HeroButton(
+            icon: Icons.edit_outlined,
+            label: 'Open report',
+            onTap: () => context.push('/reports'),
+          ),
+          _HeroButton(
+            icon: Icons.camera_alt_outlined,
+            label: 'Scan again',
+            onTap: () => context.push('/scanner'),
+          ),
+        ],
+      );
+    }
+
     // No APS, no reports → upload prompt
     if (aps == null) {
       return _heroShell(
@@ -1254,9 +1257,13 @@ class _ApsHero extends StatelessWidget {
   }
 }
 
-/// Calm pulse shown while the user's first report is being processed —
-/// avoids the awkward "do nothing, also do something" state.
+/// Calm pulse shown only during actual network loading, never as a
+/// permanent state. Customisable headline so callers can say e.g.
+/// 'Loading your dashboard…' vs 'Reading your report card…'.
 class _ProcessingPulse extends StatelessWidget {
+  final String message;
+  const _ProcessingPulse({this.message = 'Loading…'});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1284,15 +1291,15 @@ class _ProcessingPulse extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('Reading your report card…',
-                    style: TextStyle(
+              children: [
+                Text(message,
+                    style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w800)),
-                SizedBox(height: 4),
-                Text(
-                  'This usually takes 10–30 seconds. Pull to refresh.',
+                const SizedBox(height: 4),
+                const Text(
+                  'Pull down to refresh if this hangs.',
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
