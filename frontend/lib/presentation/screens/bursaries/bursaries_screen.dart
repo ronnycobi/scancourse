@@ -552,6 +552,15 @@ class _BursaryCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis),
               ],
               const SizedBox(height: 10),
+              // ⚠️  Was a Wrap with const Spacer() inside — invalid: Spacer
+              // only works in Flex (Row/Column). Flutter renders the Spacer
+              // as a SizedBox.expand which paints a huge gray rectangle
+              // filling the bursary card. Bug repro: every bursary card was
+              // ~screen-tall with one tiny header row.
+              //
+              // Fix: split into a Wrap (funding type + deadline) so they
+              // can flow onto a second line on narrow phones, then a
+              // separate Row aligning the Apply button to the right.
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -595,30 +604,36 @@ class _BursaryCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  const Spacer(),
-                  SizedBox(
-                    height: 28,
-                    child: TextButton(
-                      onPressed: isClosed
-                          ? null
-                          : () => launchUrl(
-                                Uri.parse(b.applicationUrl),
-                                mode: LaunchMode.externalApplication,
-                              ),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        backgroundColor: isClosed
-                            ? AppColors.surface
-                            : AppColors.primary,
-                        foregroundColor:
-                            isClosed ? AppColors.textHint : Colors.white,
-                        textStyle: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600),
-                      ),
-                      child: Text(isClosed ? 'Closed' : 'Apply'),
-                    ),
-                  ),
                 ],
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                  height: 30,
+                  child: TextButton(
+                    onPressed: isClosed
+                        ? null
+                        : () => launchUrl(
+                              Uri.parse(b.applicationUrl),
+                              mode: LaunchMode.externalApplication,
+                            ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      backgroundColor: isClosed
+                          ? AppColors.surface
+                          : AppColors.primary,
+                      foregroundColor:
+                          isClosed ? AppColors.textHint : Colors.white,
+                      textStyle: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(isClosed ? 'Closed' : 'Apply'),
+                  ),
+                ),
               ),
             ],
           ),
