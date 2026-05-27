@@ -13,6 +13,7 @@ import '../bursaries/bursaries_screen.dart';
 import '../../widgets/cards/aps_score_card.dart';
 import '../../widgets/common/app_avatar.dart';
 import '../../widgets/common/notification_bell.dart';
+import '../../widgets/cards/feed_card.dart';
 import '../../widgets/cards/quick_action_card.dart';
 import '../../widgets/cards/section_header.dart';
 
@@ -32,6 +33,8 @@ class HomeScreen extends ConsumerWidget {
             ref.invalidate(courseRecommendationsProvider);
             ref.invalidate(bursaryRecommendationsProvider);
             ref.invalidate(bursaryListProvider('status=open'));
+            ref.invalidate(homeFeedProvider);
+            ref.invalidate(unreadCountProvider);
           },
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -147,6 +150,12 @@ class HomeScreen extends ConsumerWidget {
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
+
+                    // For You feed — ranked cards driven by server signals.
+                    // Sits ABOVE quick actions so it's the first thing the
+                    // user sees on every visit. The list refreshes when we
+                    // pull-to-refresh the home screen.
+                    const _ForYouFeed(),
 
                     // Quick Actions
                     const SectionHeader(title: 'Quick Actions'),
@@ -991,6 +1000,58 @@ class _BursaryTeaser extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "For You" section — server-ranked list of actionable cards.
+/// Hidden entirely when the feed is empty (e.g. brand new account
+/// before scanning anything) so the home screen doesn't feel sparse.
+class _ForYouFeed extends ConsumerWidget {
+  const _ForYouFeed();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(homeFeedProvider);
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (items) {
+        if (items.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Text('For You',
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text('${items.length}',
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary)),
+                  ),
+                ],
+              ),
+            ),
+            ...items.map((it) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: FeedCard(item: it),
+                )),
+            const SizedBox(height: 16),
+          ],
+        );
+      },
     );
   }
 }
