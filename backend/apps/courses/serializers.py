@@ -34,6 +34,7 @@ class CourseListSerializer(serializers.ModelSerializer):
     institution_short = serializers.SerializerMethodField()
     institution_city = serializers.SerializerMethodField()
     institution_logo_url = serializers.SerializerMethodField()
+    application_deadline = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -42,6 +43,7 @@ class CourseListSerializer(serializers.ModelSerializer):
             'fees_per_year', 'salary_min', 'salary_max', 'min_aps',
             'institution_name', 'institution_short',
             'institution_city', 'institution_logo_url',
+            'application_deadline',
         )
 
     def _primary(self, obj):
@@ -74,6 +76,10 @@ class CourseListSerializer(serializers.ModelSerializer):
     def get_institution_logo_url(self, obj):
         o = self._primary(obj)
         return o.institution.logo_url if (o and o.institution_id) else None
+
+    def get_application_deadline(self, obj):
+        o = self._primary(obj)
+        return o.application_deadline if o else None
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):

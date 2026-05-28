@@ -557,6 +557,7 @@ def match_courses(
             'institution_apply_url': offering.institution.application_url,
             'campus':                offering.campus,
             'min_aps':               offering.min_aps,
+            'application_deadline':  offering.application_deadline,
             'programme_code':        offering.programme_code,
             'subject_requirements':  offering.subject_requirements,
             'match':                 match,
