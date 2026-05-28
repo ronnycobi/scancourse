@@ -74,11 +74,29 @@ def merge_results(results: Iterable[APSResult]) -> dict:
 def best_aps_for_user(user) -> dict:
     """
     Public helper: best-marks-across-all-reports snapshot for a user.
-    Returns the same dict shape as merge_results().
+
+    Two guards against returning 0 when the user actually has a usable
+    score (the home screen was showing 'We couldn't read your marks'
+    even though their report listed an APS):
+      1. Don't pre-exclude total_aps=0 from the merge input — a stale 0
+         shouldn't prevent merging the rest.
+      2. If the merge loses all subjects (happens when subjects_data is
+         shaped oddly and the canonical re-calc skips everything), fall
+         back to the most recent non-zero APSResult as-is.
     """
     qs = (
         APSResult.objects.filter(user=user)
-        .exclude(total_aps=0)
         .order_by('-created_at')
     )
-    return merge_results(qs)
+    merged = merge_results(qs)
+    if merged['total_aps'] > 0:
+        return merged
+    latest = qs.exclude(total_aps=0).first()
+    if latest:
+        return {
+            'total_aps': latest.total_aps,
+            'subjects': latest.subjects_data or [],
+            'report_count': qs.count(),
+            'source_reports': [latest.pk],
+        }
+    return merged
