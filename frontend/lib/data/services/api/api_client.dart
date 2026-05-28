@@ -28,10 +28,38 @@ class ApiClient {
 
   Dio get dio => _dio;
 
+  /// Endpoints that must NEVER receive a Bearer header. If a stale
+  /// access token from a previous session lingered in secure storage,
+  /// DRF's JWTAuthentication would reject the request with 401 before
+  /// it ever reached the login/register view — making fresh logins
+  /// fail on the first attempt and only succeed after the 401-driven
+  /// token refresh ran. Strip auth on these paths so credentials are
+  /// always validated cleanly.
+  static const _unauthedPaths = <String>{
+    '/auth/login/',
+    '/auth/register/',
+    '/auth/google/',
+    '/auth/token/refresh/',
+    '/auth/password/reset/',
+    '/auth/password/reset/confirm/',
+  };
+
+  bool _isUnauthed(String path) {
+    for (final p in _unauthedPaths) {
+      if (path.endsWith(p)) return true;
+    }
+    return false;
+  }
+
   Future<void> _onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    if (_isUnauthed(options.path)) {
+      options.headers.remove('Authorization');
+      handler.next(options);
+      return;
+    }
     final token = await _storage.read(key: AppConstants.accessTokenKey);
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
@@ -40,7 +68,10 @@ class ApiClient {
   }
 
   Future<void> _onError(DioException error, ErrorInterceptorHandler handler) async {
-    if (error.response?.statusCode == 401) {
+    // Never try to refresh-and-retry on auth endpoints — a 401 there
+    // means the credentials are wrong, not that the session expired.
+    final path = error.requestOptions.path;
+    if (error.response?.statusCode == 401 && !_isUnauthed(path)) {
       final refreshed = await _refreshToken();
       if (refreshed) {
         final retryOptions = error.requestOptions;
@@ -60,10 +91,23 @@ class ApiClient {
     final refresh = await _storage.read(key: AppConstants.refreshTokenKey);
     if (refresh == null) return false;
     try {
-      final response = await _dio.post('/auth/token/refresh/', data: {'refresh': refresh});
+      final response =
+          await _dio.post('/auth/token/refresh/', data: {'refresh': refresh});
       final newAccess = response.data['access'] as String?;
+      // The backend has ROTATE_REFRESH_TOKENS + BLACKLIST_AFTER_ROTATION
+      // enabled, so each refresh returns a BRAND NEW refresh token and
+      // immediately blacklists the old one. We MUST persist the new
+      // refresh token — otherwise the next refresh would reuse the old
+      // (now-blacklisted) token, fail, and silently log the user out a
+      // couple of hours after every login.
+      final newRefresh = response.data['refresh'] as String?;
       if (newAccess != null) {
-        await _storage.write(key: AppConstants.accessTokenKey, value: newAccess);
+        await _storage.write(
+            key: AppConstants.accessTokenKey, value: newAccess);
+        if (newRefresh != null) {
+          await _storage.write(
+              key: AppConstants.refreshTokenKey, value: newRefresh);
+        }
         return true;
       }
     } catch (_) {}

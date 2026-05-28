@@ -146,6 +146,8 @@ class CourseModel {
   final String? institutionCity;
   @JsonKey(name: 'institution_logo_url')
   final String? institutionLogoUrl;
+  @JsonKey(name: 'application_deadline')
+  final String? applicationDeadline;
 
   const CourseModel({
     required this.id,
@@ -166,6 +168,7 @@ class CourseModel {
     this.institutionShort,
     this.institutionCity,
     this.institutionLogoUrl,
+    this.applicationDeadline,
   });
 
   factory CourseModel.fromJson(Map<String, dynamic> json) => _$CourseModelFromJson(json);

@@ -38,11 +38,27 @@ import '../../presentation/screens/home/main_shell.dart';
 import '../../providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  // IMPORTANT: do NOT `ref.watch(authStateProvider)` here. Watching would
+  // rebuild a brand-new GoRouter instance on every auth change, which races
+  // with in-flight navigation — that was the bug where logging in only
+  // worked on the SECOND attempt (the first login's state change replaced
+  // the router mid-navigation and swallowed the `go('/home')`).
+  //
+  // Instead build the router ONCE and let a refreshListenable re-run the
+  // redirect whenever auth state changes. The redirect reads the latest
+  // auth state via ref.read at call time.
+  final refresh = ValueNotifier<int>(0);
+  ref.listen<AuthState>(
+    authStateProvider,
+    (_, __) => refresh.value++,
+  );
+  ref.onDispose(refresh.dispose);
 
   return GoRouter(
     initialLocation: '/splash',
+    refreshListenable: refresh,
     redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
       final isLoggedIn = authState.isAuthenticated;
       final isOnboarded = authState.isOnboarded;
       final location = state.matchedLocation;

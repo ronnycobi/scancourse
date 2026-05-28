@@ -27,6 +27,7 @@ CourseModel _$CourseModelFromJson(Map<String, dynamic> json) => CourseModel(
       institutionShort: json['institution_short'] as String?,
       institutionCity: json['institution_city'] as String?,
       institutionLogoUrl: json['institution_logo_url'] as String?,
+      applicationDeadline: json['application_deadline'] as String?,
     );
 
 Map<String, dynamic> _$CourseModelToJson(CourseModel instance) =>
@@ -49,6 +50,7 @@ Map<String, dynamic> _$CourseModelToJson(CourseModel instance) =>
       'institution_short': instance.institutionShort,
       'institution_city': instance.institutionCity,
       'institution_logo_url': instance.institutionLogoUrl,
+      'application_deadline': instance.applicationDeadline,
     };
 
 CourseOffering _$CourseOfferingFromJson(Map<String, dynamic> json) =>

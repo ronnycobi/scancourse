@@ -9,6 +9,7 @@ import '../../../providers/course_provider.dart';
 import '../../../data/models/bursary_model.dart';
 import '../../../data/models/bursary_match_model.dart';
 import '../../../providers/bursary_provider.dart';
+import '../../../providers/application_provider.dart';
 import '../bursaries/bursaries_screen.dart';
 import '../../widgets/cards/aps_score_card.dart';
 import '../../widgets/common/app_avatar.dart';
@@ -89,32 +90,10 @@ class HomeScreen extends ConsumerWidget {
                       reportsAsync: reportsAsync,
                       userGrade: user?.grade,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
-                    // Recommended courses sit RIGHT ABOVE Quick Actions
-                    // so the personalised content is the first thing
-                    // visible after the nudges. Previously this section
-                    // lived below Quick Actions + Pathways + Open unis
-                    // which meant users had to scroll past three other
-                    // sections to find their actual matches.
-                    if (hasAps) ...[
-                      SectionHeader(
-                          title: 'Recommended for You',
-                          actionLabel: 'See all',
-                          onAction: () => context.go('/courses')),
-                      const SizedBox(height: 12),
-                      const _RecommendedCourses(),
-                      const SizedBox(height: 24),
-                    ] else if (!hasUploadedSomething) ...[
-                      // Show the unlock CTA only when there's nothing at
-                      // all on file. If a report is uploading / OCR is
-                      // running, we already show a busy spinner above —
-                      // don't double up with another "scan now" prompt.
-                      const _UnlockRecommendationsCta(),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // Quick Actions
+                    // Quick Actions sit directly below the hero so the
+                    // three primary shortcuts are always one tap away.
                     const SectionHeader(title: 'Quick Actions'),
                     const SizedBox(height: 12),
                     Row(
@@ -149,10 +128,21 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
 
-                    const SectionHeader(title: 'Explore Pathways'),
-                    const SizedBox(height: 12),
-                    const _PathwayCards(),
-                    const SizedBox(height: 24),
+                    // Recommended courses — personalised content follows
+                    // the quick shortcuts. Falls back to the unlock CTA
+                    // when there's nothing on file.
+                    if (hasAps) ...[
+                      SectionHeader(
+                          title: 'Recommended for You',
+                          actionLabel: 'See all',
+                          onAction: () => context.go('/courses')),
+                      const SizedBox(height: 12),
+                      const _RecommendedCourses(),
+                      const SizedBox(height: 24),
+                    ] else if (!hasUploadedSomething) ...[
+                      const _UnlockRecommendationsCta(),
+                      const SizedBox(height: 24),
+                    ],
 
                     SectionHeader(title: 'Universities Still Open', actionLabel: 'See all', onAction: () => context.go('/courses')),
                     const SizedBox(height: 12),
@@ -174,6 +164,11 @@ class HomeScreen extends ConsumerWidget {
                     SectionHeader(title: 'Bursaries Closing Soon', actionLabel: 'See all', onAction: () => context.go('/bursaries')),
                     const SizedBox(height: 12),
                     _BursaryTeaserList(onTap: () => context.go('/bursaries')),
+                    const SizedBox(height: 24),
+
+                    const SectionHeader(title: 'Explore Pathways'),
+                    const SizedBox(height: 12),
+                    const _PathwayCards(),
                   ],
                 ),
               ),
@@ -195,7 +190,7 @@ class _RecommendedCourses extends ConsumerWidget {
 
     return async.when(
       loading: () => const SizedBox(
-        height: 210,
+        height: 150,
         child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
       ),
       error: (e, _) => Container(
@@ -239,7 +234,7 @@ class _RecommendedCourses extends ConsumerWidget {
         // card stops cleanly. Bigger institution name, gradient
         // header strip coloured by match verdict.
         return SizedBox(
-          height: 210,
+          height: 150,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -255,13 +250,15 @@ class _RecommendedCourses extends ConsumerWidget {
               return _RecommendationCard(
                 courseId: r['course_id'] as int,
                 courseName: (r['course_name'] as String?) ?? '',
-                institution: (r['institution_short'] as String?) ??
-                    (r['institution_name'] as String?) ??
+                institution: (r['institution_name'] as String?) ??
+                    (r['institution_short'] as String?) ??
                     '',
                 institutionLogoUrl:
                     (r['institution_logo_url'] as String?) ?? '',
                 field: (r['course_field'] as String?) ?? '',
                 minAps: (r['min_aps'] as num?)?.toInt() ?? 0,
+                durationYears: (r['course_duration_years'] as num?)?.toDouble(),
+                applicationDeadline: r['application_deadline'] as String?,
                 matchCategory: (match['category'] as String?) ?? '',
                 apsSurplus: (match['aps_surplus'] as num?)?.toInt() ?? 0,
                 reasonKey: reason,
@@ -281,6 +278,8 @@ class _RecommendationCard extends StatelessWidget {
   final String institutionLogoUrl;
   final String field;
   final int minAps;
+  final double? durationYears;
+  final String? applicationDeadline;
   final String reasonKey;
   final String matchCategory;
   final int apsSurplus;
@@ -292,10 +291,44 @@ class _RecommendationCard extends StatelessWidget {
     required this.institutionLogoUrl,
     required this.field,
     required this.minAps,
+    this.durationYears,
+    this.applicationDeadline,
     required this.reasonKey,
     required this.matchCategory,
     required this.apsSurplus,
   });
+
+  // "3-year" / "1½-year" friendly label, or null if unknown.
+  String? get _durationLabel {
+    final d = durationYears;
+    if (d == null || d <= 0) return null;
+    if (d == d.roundToDouble()) return '${d.toInt()}-year';
+    return '${d.toStringAsFixed(1)}-year';
+  }
+
+  // "Closes 30 Sep" or "Closed", or null if no deadline on record.
+  String? get _deadlineLabel {
+    final raw = applicationDeadline;
+    if (raw == null || raw.isEmpty) return null;
+    final date = DateTime.tryParse(raw);
+    if (date == null) return null;
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final now = DateTime.now();
+    if (date.isBefore(DateTime(now.year, now.month, now.day))) return 'Closed';
+    return 'Closes ${date.day} ${months[date.month]}';
+  }
+
+  bool get _deadlineUrgent {
+    final raw = applicationDeadline;
+    if (raw == null) return false;
+    final date = DateTime.tryParse(raw);
+    if (date == null) return false;
+    final days = date.difference(DateTime.now()).inDays;
+    return days >= 0 && days <= 14;
+  }
 
   // Colour set used by the gradient header strip — the verdict drives
   // the whole card mood: green for qualify, amber for subject gap,
@@ -391,127 +424,107 @@ class _RecommendationCard extends StatelessWidget {
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // ── Gradient header ─────────────────────────────────
-                Container(
-                  height: 78,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [grad.top, grad.bottom],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-                  child: Row(
-                    children: [
-                      // Institution logo
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.12),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: institutionLogoUrl.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  institutionLogoUrl,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) =>
-                                      _logoFallback(institution),
-                                ),
-                              )
-                            : _logoFallback(institution),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      courseName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        height: 1.2,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    // Full institution name (e.g. "Cape Peninsula University
+                    // of Technology") — replaces the old "Matches subjects".
+                    Text(
+                      institution,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (_durationLabel != null || _deadlineLabel != null) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          if (_durationLabel != null) ...[
+                            const Icon(Icons.schedule,
+                                size: 12, color: AppColors.textHint),
+                            const SizedBox(width: 3),
                             Text(
-                              institution,
+                              _durationLabel!,
                               style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: 0.1,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.22),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                minAps > 0 ? 'APS $minAps' : 'Open',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
+                                fontSize: 10.5,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
-                        ),
+                          if (_durationLabel != null && _deadlineLabel != null)
+                            const Text('  ·  ',
+                                style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: AppColors.textHint)),
+                          if (_deadlineLabel != null)
+                            Flexible(
+                              child: Text(
+                                _deadlineLabel!,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _deadlineUrgent
+                                      ? AppColors.error
+                                      : AppColors.textSecondary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
                       ),
                     ],
-                  ),
+                  ],
                 ),
-
-                // ── Body ─────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        courseName,
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                          height: 1.25,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 8),
+                // Bottom row: APS chip next to qualify badge.
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _reasonLabel,
+                      child: Text(
+                        minAps > 0 ? 'APS $minAps' : 'Open',
                         style: const TextStyle(
                           fontSize: 11,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 10),
-                      if (_matchLabel.isNotEmpty)
-                        Container(
+                    ),
+                    const SizedBox(width: 6),
+                    if (_matchLabel.isNotEmpty)
+                      Flexible(
+                        child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: _matchColor.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(20),
@@ -523,20 +536,23 @@ class _RecommendationCard extends StatelessWidget {
                             children: [
                               Icon(_matchIcon,
                                   size: 12, color: _matchColor),
-                              const SizedBox(width: 5),
-                              Text(
-                                _matchLabel,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: _matchColor,
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  _matchLabel,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: _matchColor,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -1074,7 +1090,7 @@ class _BursaryTeaser extends StatelessWidget {
 /// Single blue hero at the top of the home screen. State-machine that
 /// adapts to whether the user has an APS and what grade they're in,
 /// so the message always lines up with what they should do next.
-class _ApsHero extends StatelessWidget {
+class _ApsHero extends ConsumerWidget {
   final AsyncValue apsAsync;
   final AsyncValue reportsAsync;
   final String? userGrade;
@@ -1091,7 +1107,12 @@ class _ApsHero extends StatelessWidget {
       userGrade == 'other';
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Has the user actually started tracking any applications? If not,
+    // the "Courses" + "My applications" CTAs lead to empty screens, so
+    // we hide them and let the hero shrink to its text content only.
+    final hasApplications =
+        (ref.watch(applicationListProvider).valueOrNull?.isNotEmpty) ?? false;
     final aps = apsAsync.valueOrNull;
     final apsLoading = apsAsync.isLoading;
     final reportsLoading = reportsAsync.isLoading;
@@ -1165,18 +1186,22 @@ class _ApsHero extends StatelessWidget {
         title: 'Your APS is ${aps.totalAps}. Time to apply.',
         body:
             'See every course and bursary you qualify for, and start tracking your applications.',
-        actions: [
-          _HeroButton(
-            icon: Icons.search,
-            label: 'See matches',
-            onTap: () => context.push('/courses'),
-          ),
-          _HeroButton(
-            icon: Icons.assignment_outlined,
-            label: 'My applications',
-            onTap: () => context.push('/applications'),
-          ),
-        ],
+        // If the user hasn't started any applications yet, drop the CTA
+        // buttons entirely — the hero shrinks to fit just the message.
+        actions: hasApplications
+            ? [
+                _HeroButton(
+                  icon: Icons.school_outlined,
+                  label: 'Courses',
+                  onTap: () => context.push('/courses'),
+                ),
+                _HeroButton(
+                  icon: Icons.assignment_outlined,
+                  label: 'My applications',
+                  onTap: () => context.push('/applications'),
+                ),
+              ]
+            : const [],
       );
     }
     // Grade 10/11 (or grade unset) — still in school, can improve.
@@ -1203,54 +1228,54 @@ class _ApsHero extends StatelessWidget {
 
   Widget _heroShell(
     BuildContext context, {
-    required IconData icon,
+    IconData? icon, // legacy — no longer rendered (kept for call-site compat)
     required String title,
     required String body,
     required List<Widget> actions,
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppColors.primary, AppColors.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: AppColors.primary.withOpacity(0.20),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.white, size: 32),
-          const SizedBox(height: 12),
           Text(title,
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
           Text(body,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: Colors.white70, height: 1.4)),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              for (int i = 0; i < actions.length; i++) ...[
-                Expanded(child: actions[i]),
-                if (i < actions.length - 1) const SizedBox(width: 8),
+              style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.35)),
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                for (int i = 0; i < actions.length; i++) ...[
+                  Expanded(child: actions[i]),
+                  if (i < actions.length - 1) const SizedBox(width: 8),
+                ],
               ],
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );

@@ -27,7 +27,9 @@ class ApsSubject {
 
 @JsonSerializable()
 class ApsResult {
-  final int id;
+  // Nullable: the merged "best APS across reports" endpoint returns
+  // id=null because the result is synthesized from multiple APSResults.
+  final int? id;
   @JsonKey(name: 'total_aps')
   final int totalAps;
   @JsonKey(name: 'subjects_data')
@@ -36,7 +38,7 @@ class ApsResult {
   final DateTime? createdAt;
 
   const ApsResult({
-    required this.id,
+    this.id,
     required this.totalAps,
     required this.subjectsData,
     this.createdAt,

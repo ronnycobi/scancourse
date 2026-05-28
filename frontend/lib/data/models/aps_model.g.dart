@@ -24,7 +24,7 @@ Map<String, dynamic> _$ApsSubjectToJson(ApsSubject instance) =>
     };
 
 ApsResult _$ApsResultFromJson(Map<String, dynamic> json) => ApsResult(
-      id: (json['id'] as num).toInt(),
+      id: (json['id'] as num?)?.toInt(),
       totalAps: (json['total_aps'] as num).toInt(),
       subjectsData: json['subjects_data'] as List<dynamic>,
       createdAt: json['created_at'] == null

@@ -537,6 +537,34 @@ class _BrowseCourseCard extends StatelessWidget {
     return sorted.first;
   }
 
+  // Deadline from the flat list field, falling back to the best offering.
+  String? get _rawDeadline =>
+      course.applicationDeadline ?? _bestOffering?.applicationDeadline;
+
+  // "Closes 30 Sep" / "Closed", or null if no deadline on record.
+  String? get _deadlineLabel {
+    final raw = _rawDeadline;
+    if (raw == null || raw.isEmpty) return null;
+    final date = DateTime.tryParse(raw);
+    if (date == null) return null;
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final now = DateTime.now();
+    if (date.isBefore(DateTime(now.year, now.month, now.day))) return 'Closed';
+    return 'Closes ${date.day} ${months[date.month]}';
+  }
+
+  bool get _deadlineUrgent {
+    final raw = _rawDeadline;
+    if (raw == null) return false;
+    final date = DateTime.tryParse(raw);
+    if (date == null) return false;
+    final days = date.difference(DateTime.now()).inDays;
+    return days >= 0 && days <= 14;
+  }
+
   /// Best institution name we have. Prefer flat fields from the list
   /// endpoint (e.g. "Wits") over the full name we'd compute from
   /// offerings. Falls back to the offering's institution if available.
@@ -670,6 +698,18 @@ class _BrowseCourseCard extends StatelessWidget {
                   background: AppColors.surface,
                   foreground: AppColors.textSecondary,
                   bordered: true,
+                ),
+              if (_deadlineLabel != null)
+                _SoftChip(
+                  label: _deadlineLabel!,
+                  icon: Icons.event_outlined,
+                  background: _deadlineUrgent
+                      ? AppColors.error.withOpacity(0.10)
+                      : AppColors.surface,
+                  foreground: _deadlineUrgent
+                      ? AppColors.error
+                      : AppColors.textSecondary,
+                  bordered: !_deadlineUrgent,
                 ),
             ],
           ),
