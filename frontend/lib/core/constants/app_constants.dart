@@ -15,7 +15,8 @@ class AppConstants {
   // "not configured" message instead of silently failing.
   static const String googleServerClientId = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',
-    defaultValue: '',
+    defaultValue:
+        '610772172168-kmomesik8c5b5s3otp315ui6233j8tlq.apps.googleusercontent.com',
   );
 
   // Local storage keys

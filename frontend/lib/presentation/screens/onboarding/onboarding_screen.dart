@@ -21,8 +21,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   String? _selectedGrade;
   String? _selectedProvince;
-  String? _selectedField;
-  String? _selectedStudyProvince;
+  // Field interests + study provinces are multi-select.
+  final Set<String> _selectedFields = {};
+  final Set<String> _selectedStudyProvinces = {};
   final _careerCtrl = TextEditingController();
 
   static const int _totalPages = 5;
@@ -38,8 +39,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     switch (_currentPage) {
       case 0: return _selectedGrade != null;
       case 1: return _selectedProvince != null;
-      case 2: return _selectedField != null;
-      case 3: return _selectedStudyProvince != null;
+      case 2: return _selectedFields.isNotEmpty;
+      case 3: return _selectedStudyProvinces.isNotEmpty;
       case 4: return true;
       default: return false;
     }
@@ -71,9 +72,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await ref.read(authStateProvider.notifier).completeOnboarding({
         if (_selectedGrade != null) 'grade': _selectedGrade,
         if (_selectedProvince != null) 'province': _selectedProvince,
-        if (_selectedField != null) 'preferred_field': _selectedField,
-        if (_selectedStudyProvince != null)
-          'preferred_study_province': _selectedStudyProvince,
+        if (_selectedFields.isNotEmpty)
+          'preferred_fields': _selectedFields.toList(),
+        if (_selectedStudyProvinces.isNotEmpty)
+          'preferred_study_provinces': _selectedStudyProvinces.toList(),
         if (_careerCtrl.text.trim().isNotEmpty)
           'dream_career': _careerCtrl.text.trim(),
       });
@@ -92,11 +94,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
+  /// Multi-select variant — toggles membership in [selected] set.
+  Widget _buildMultiChip(String label, String value, Set<String> selected) {
+    return _chipBody(
+      label,
+      selected.contains(value),
+      () => setState(() {
+        if (!selected.add(value)) selected.remove(value);
+      }),
+    );
+  }
+
   Widget _buildChip(String label, String value, String? selected, void Function(String) onSelect) {
-    final isSelected = selected == value;
+    return _chipBody(label, selected == value,
+        () => setState(() => onSelect(value)));
+  }
+
+  Widget _chipBody(String label, bool isSelected, VoidCallback onTap) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => onSelect(value)),
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
@@ -213,30 +230,32 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                   ),
 
-                  // Page 3 — Field
+                  // Page 3 — Field (multi-select)
                   _StepPage(
                     emoji: '📚',
-                    title: 'What field interests you?',
-                    subtitle: "We'll match courses to your passion",
+                    title: 'What fields interest you?',
+                    subtitle: 'Pick one or more — tap again to deselect',
                     child: Wrap(
                       spacing: 10,
                       runSpacing: 10,
                       children: AppConstants.studyFields.entries
-                          .map((e) => _buildChip(e.value, e.key, _selectedField, (v) => _selectedField = v))
+                          .map((e) =>
+                              _buildMultiChip(e.value, e.key, _selectedFields))
                           .toList(),
                     ),
                   ),
 
-                  // Page 4 — Study province
+                  // Page 4 — Study province (multi-select)
                   _StepPage(
                     emoji: '🏫',
                     title: 'Where do you want to study?',
-                    subtitle: 'Your preferred study province',
+                    subtitle: 'Pick one or more provinces',
                     child: Wrap(
                       spacing: 10,
                       runSpacing: 10,
                       children: AppConstants.provinces.entries
-                          .map((e) => _buildChip(e.value, e.key, _selectedStudyProvince, (v) => _selectedStudyProvince = v))
+                          .map((e) => _buildMultiChip(
+                              e.value, e.key, _selectedStudyProvinces))
                           .toList(),
                     ),
                   ),
