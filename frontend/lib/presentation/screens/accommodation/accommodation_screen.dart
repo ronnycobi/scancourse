@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../data/services/api/api_client.dart';
+import '../../widgets/common/bookmark_button.dart';
 
 class AccommodationItem {
   final int id;
@@ -16,6 +16,7 @@ class AccommodationItem {
   final bool nsfasAccredited;
   final double? distanceKm;
   final String? contactPhone;
+  final int? nearbyInstitutionId;
   final String? nearbyInstitution;
   final List<String> features;
   final List images;
@@ -30,12 +31,32 @@ class AccommodationItem {
         nsfasAccredited = j['nsfas_accredited'] ?? false,
         distanceKm = j['distance_km'] != null ? double.tryParse(j['distance_km'].toString()) : null,
         contactPhone = j['contact_phone'],
+        nearbyInstitutionId = j['nearby_institution'] as int?,
         nearbyInstitution = j['nearby_institution_name'] as String?,
         features = ((j['features'] as List?) ?? [])
             .map((e) => e.toString())
             .toList(),
         images = j['images'] ?? [];
 }
+
+/// Distinct universities that actually have accommodation listed — powers
+/// the "University" filter dropdown ({id: name}).
+final accommodationUniversitiesProvider =
+    FutureProvider<Map<String, String>>((ref) async {
+  final resp = await ApiClient.instance
+      .get('/accommodation/', queryParams: {'page_size': '500'});
+  final list = (resp.data['results'] ?? resp.data) as List;
+  final out = <String, String>{};
+  for (final e in list) {
+    final id = e['nearby_institution'];
+    final name = e['nearby_institution_name'];
+    if (id != null && name != null) out['$id'] = name.toString();
+  }
+  // Sorted by name for a tidy picker.
+  final sorted = out.entries.toList()
+    ..sort((a, b) => a.value.compareTo(b.value));
+  return {for (final e in sorted) e.key: e.value};
+});
 
 // Stable String key (Maps are reference-equal in Dart and cause endless refetching).
 final accommodationProvider = FutureProvider.family<List<AccommodationItem>, String?>((ref, paramStr) async {
@@ -64,6 +85,7 @@ class AccommodationScreen extends ConsumerStatefulWidget {
 class _AccommodationScreenState extends ConsumerState<AccommodationScreen> {
   String? _province;
   String? _roomType;
+  String? _university; // nearby_institution id
   int? _maxPrice;
   bool _nsfasOnly = false;
 
@@ -135,9 +157,12 @@ class _AccommodationScreenState extends ConsumerState<AccommodationScreen> {
     final filterParts = [
       if (_province != null) 'province=${Uri.encodeComponent(_province!)}',
       if (_roomType != null) 'room_type=${Uri.encodeComponent(_roomType!)}',
+      if (_university != null) 'nearby_institution=$_university',
       if (_maxPrice != null) 'max_price=$_maxPrice',
       if (_nsfasOnly) 'nsfas_accredited=true',
     ];
+    final universities =
+        ref.watch(accommodationUniversitiesProvider).valueOrNull ?? const {};
     final paramStr = filterParts.isEmpty ? null : filterParts.join('&');
     final accAsync = ref.watch(accommodationProvider(paramStr));
 
@@ -146,72 +171,77 @@ class _AccommodationScreenState extends ConsumerState<AccommodationScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // NSFAS — prominent green accreditation filter, up front.
-                  FilterChip(
-                    avatar: Icon(Icons.verified_outlined,
-                        size: 18,
-                        color: _nsfasOnly
-                            ? AppColors.eligible
-                            : AppColors.textSecondary),
-                    label: const Text('NSFAS Accredited'),
-                    selected: _nsfasOnly,
-                    onSelected: (v) => setState(() => _nsfasOnly = v),
-                    selectedColor: AppColors.eligible.withOpacity(0.15),
-                    checkmarkColor: AppColors.eligible,
-                    side: BorderSide(
-                        color: _nsfasOnly
-                            ? AppColors.eligible
-                            : AppColors.border),
-                    labelStyle: TextStyle(
-                        color: _nsfasOnly
-                            ? AppColors.eligible
-                            : AppColors.textPrimary,
-                        fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(width: 8),
-                  _pickerChip(
-                    label: _province != null
-                        ? (AppConstants.provinces[_province] ?? 'Province')
-                        : 'Province',
-                    active: _province != null,
-                    title: 'Province',
-                    options: AppConstants.provinces,
-                    current: _province,
-                    onPicked: (v) => setState(() => _province = v),
-                  ),
-                  const SizedBox(width: 8),
-                  _pickerChip(
-                    label: _roomType != null
-                        ? (_roomTypes[_roomType] ?? 'Room type')
-                        : 'Room type',
-                    active: _roomType != null,
-                    title: 'Room type',
-                    options: _roomTypes,
-                    current: _roomType,
-                    onPicked: (v) => setState(() => _roomType = v),
-                  ),
-                  const SizedBox(width: 8),
-                  _pickerChip(
-                    label: _maxPrice != null
-                        ? (_priceOptions[_maxPrice] ?? 'Price')
-                        : 'Max price',
-                    active: _maxPrice != null,
-                    title: 'Maximum monthly price',
-                    options: {
-                      for (final e in _priceOptions.entries)
-                        e.key.toString(): e.value
-                    },
-                    current: _maxPrice?.toString(),
-                    onPicked: (v) =>
-                        setState(() => _maxPrice = v == null ? null : int.parse(v)),
-                  ),
-                ],
-              ),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            // Wrap so every filter is visible (flows onto a second line).
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                // NSFAS — prominent green accreditation filter, up front.
+                FilterChip(
+                  avatar: Icon(Icons.verified_outlined,
+                      size: 18,
+                      color: _nsfasOnly
+                          ? AppColors.eligible
+                          : AppColors.textSecondary),
+                  label: const Text('NSFAS'),
+                  selected: _nsfasOnly,
+                  onSelected: (v) => setState(() => _nsfasOnly = v),
+                  selectedColor: AppColors.eligible.withOpacity(0.15),
+                  checkmarkColor: AppColors.eligible,
+                  side: BorderSide(
+                      color: _nsfasOnly ? AppColors.eligible : AppColors.border),
+                  labelStyle: TextStyle(
+                      color: _nsfasOnly
+                          ? AppColors.eligible
+                          : AppColors.textPrimary,
+                      fontWeight: FontWeight.w700),
+                ),
+                _pickerChip(
+                  label: _university != null
+                      ? (universities[_university] ?? 'University')
+                      : 'University',
+                  active: _university != null,
+                  title: 'University',
+                  options: universities,
+                  current: _university,
+                  onPicked: (v) => setState(() => _university = v),
+                ),
+                _pickerChip(
+                  label: _province != null
+                      ? (AppConstants.provinces[_province] ?? 'Province')
+                      : 'Province',
+                  active: _province != null,
+                  title: 'Province',
+                  options: AppConstants.provinces,
+                  current: _province,
+                  onPicked: (v) => setState(() => _province = v),
+                ),
+                _pickerChip(
+                  label: _roomType != null
+                      ? (_roomTypes[_roomType] ?? 'Room type')
+                      : 'Room type',
+                  active: _roomType != null,
+                  title: 'Room type',
+                  options: _roomTypes,
+                  current: _roomType,
+                  onPicked: (v) => setState(() => _roomType = v),
+                ),
+                _pickerChip(
+                  label: _maxPrice != null
+                      ? (_priceOptions[_maxPrice] ?? 'Price')
+                      : 'Max price',
+                  active: _maxPrice != null,
+                  title: 'Maximum monthly price',
+                  options: {
+                    for (final e in _priceOptions.entries)
+                      e.key.toString(): e.value
+                  },
+                  current: _maxPrice?.toString(),
+                  onPicked: (v) => setState(
+                      () => _maxPrice = v == null ? null : int.parse(v)),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -393,7 +423,7 @@ class _AccommodationCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Price block
+                  // Price + Save
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -409,6 +439,11 @@ class _AccommodationCard extends StatelessWidget {
                       const Text('per month',
                           style: TextStyle(
                               fontSize: 10, color: AppColors.textHint)),
+                      BookmarkButton(
+                        itemType: 'accommodation',
+                        itemId: item.id,
+                        size: 20,
+                      ),
                     ],
                   ),
                 ],
@@ -435,21 +470,6 @@ class _AccommodationCard extends StatelessWidget {
                         icon: Icons.directions_walk, bordered: true),
                 ],
               ),
-              if (item.contactPhone?.isNotEmpty == true) ...[
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: OutlinedButton.icon(
-                    onPressed: () =>
-                        launchUrl(Uri.parse('tel:${item.contactPhone}')),
-                    icon: const Icon(Icons.phone_outlined, size: 16),
-                    label: const Text('Call'),
-                    style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(80, 34),
-                        textStyle: const TextStyle(fontSize: 13)),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
