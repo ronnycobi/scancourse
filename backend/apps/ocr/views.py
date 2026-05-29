@@ -170,8 +170,12 @@ class APSJourneyView(APIView):
       }
     """
     def get(self, request):
+        # Only real APS results — a total_aps of 0 means OCR couldn't read
+        # marks, not an actual score. Including them would start the line
+        # chart at a misleading 0 and inflate the growth delta.
         results = list(
-            APSResult.objects.filter(user=request.user).order_by('created_at')
+            APSResult.objects.filter(user=request.user, total_aps__gt=0)
+            .order_by('created_at')
         )
         if not results:
             return Response({
