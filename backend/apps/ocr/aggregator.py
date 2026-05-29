@@ -88,15 +88,30 @@ def best_aps_for_user(user) -> dict:
         APSResult.objects.filter(user=user)
         .order_by('-created_at')
     )
-    merged = merge_results(qs)
-    if merged['total_aps'] > 0:
-        return merged
-    latest = qs.exclude(total_aps=0).first()
-    if latest:
+
+    # Manual entry is authoritative. If the user's most recent record is a
+    # hand-entered "Edit Marks" entry (no linked report), use it as-is
+    # instead of merging with older scanned marks — so corrections, even
+    # ones that LOWER a mark, always take effect. Scanned-only users still
+    # get the best-mark-across-sittings merge below.
+    latest = qs.first()
+    if latest and latest.report_id is None and latest.total_aps > 0:
         return {
             'total_aps': latest.total_aps,
             'subjects': latest.subjects_data or [],
             'report_count': qs.count(),
             'source_reports': [latest.pk],
+        }
+
+    merged = merge_results(qs)
+    if merged['total_aps'] > 0:
+        return merged
+    nonzero = qs.exclude(total_aps=0).first()
+    if nonzero:
+        return {
+            'total_aps': nonzero.total_aps,
+            'subjects': nonzero.subjects_data or [],
+            'report_count': qs.count(),
+            'source_reports': [nonzero.pk],
         }
     return merged

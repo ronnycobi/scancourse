@@ -89,6 +89,14 @@ class ManualEntryView(APIView):
         subjects = serializer.validated_data['subjects']
         aps_data = calculate_aps(subjects)
 
+        # "Edit Marks" / manual entry is the user's single authoritative
+        # hand-entered record. Replace any prior manual entry (report is
+        # null) so repeated edits don't pile up — and so an edit that
+        # LOWERS a mark actually takes effect instead of an old, higher
+        # manual row winning the best-mark merge.
+        APSResult.objects.filter(
+            user=request.user, report__isnull=True
+        ).delete()
         aps_result = APSResult.objects.create(
             user=request.user,
             total_aps=aps_data['total_aps'],
