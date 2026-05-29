@@ -30,6 +30,23 @@ final courseDetailProvider = FutureProvider.family<CourseModel, int>((ref, id) a
   return repo.getCourse(id);
 });
 
+/// Ranked, comprehensive search for users WITH an APS: returns the whole
+/// catalogue matching the query (qualify or not) ordered best-fit-first.
+final courseSearchProvider =
+    FutureProvider.family<List<OfferingMatchModel>, String>((ref, query) async {
+  if (query.trim().isEmpty) return [];
+  final repo = ref.read(courseRepositoryProvider);
+  final data = await repo.getMatches(
+    search: query,
+    includeNotQualified: true,
+    limit: 80,
+  );
+  final results = (data['results'] as List? ?? []);
+  return results
+      .map((e) => OfferingMatchModel.fromJson(Map<String, dynamic>.from(e as Map)))
+      .toList();
+});
+
 final courseRecommendationsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final repo = ref.read(courseRepositoryProvider);
   return repo.getRecommendations(limit: 20);

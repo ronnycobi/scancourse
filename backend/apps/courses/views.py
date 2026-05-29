@@ -122,6 +122,13 @@ class CourseMatchView(APIView):
         except (TypeError, ValueError):
             limit = 200
 
+        # When searching, show the WHOLE catalogue matching the query
+        # (qualify or not) ranked best-fit-first — exploring isn't gated by
+        # eligibility.
+        if search:
+            include_not_qualified = True
+            include_placeholders = True
+
         user = request.user
         # Honour ALL of the student's chosen preferences (multi-select in
         # onboarding), falling back to the legacy singular fields.
@@ -160,7 +167,10 @@ class CourseMatchView(APIView):
         # Summary reflects the true counts across everything matched.
         summary = match_summary(results)
 
-        if category and category in ('eligible', 'subject_gap', 'aps_gap', 'not_qualified'):
+        if search:
+            # Search → one flat, relevance-ranked list (already sorted).
+            results = results[:limit]
+        elif category and category in ('eligible', 'subject_gap', 'aps_gap', 'not_qualified'):
             # Single-category request → just that bucket, capped to `limit`.
             results = [
                 r for r in results if r['match']['category'] == category

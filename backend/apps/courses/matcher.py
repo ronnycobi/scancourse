@@ -439,17 +439,28 @@ def _evaluate_offering(
     else:
         category = 'not_qualified'
 
-    # Score 0-100 plus personalization bonus (0-30) plus level priority (0-15)
+    # ── Fit score ────────────────────────────────────────────────────────
+    # APS fit: reward comfortably clearing the cutoff, with diminishing
+    # returns past +8 surplus (so "comfortably qualify" beats "barely", but
+    # a huge surplus doesn't let easy programmes dominate the genuinely
+    # well-matched ones). Below the bar (aps_gap) tapers down.
     if offering.min_aps == 0:
-        # Open-enrolment / no published APS floor (UNISA distance, some TVETs,
-        # placeholder data). De-rate heavily so they don't dominate over real
-        # programmes with honest cutoffs the student comfortably clears.
-        aps_score = 10.0
+        # Open-enrolment / no published floor (UNISA distance, placeholder).
+        # Modest base so real programmes with honest cutoffs rank above them.
+        aps_score = 12.0
+    elif aps_surplus >= 0:
+        aps_score = 35.0 + min(aps_surplus, 8) * 2.5             # 35-55
     else:
-        aps_score = min(max(aps_surplus + 20, 0), 40) * 1.5      # 0-60
+        aps_score = max(30.0 + aps_surplus * 4, 0)              # tapers below bar
+
     subject_penalty = (len(missing) * 15) + sum(g['gap'] * 5 for g in low)
-    subject_score = max(40 - subject_penalty, 0)                  # 0-40
-    base = int(aps_score + subject_score) + _level_priority(offering.course.level)
+    subject_score = max(40 - subject_penalty, 0)                 # 0-40
+
+    # Prefer institutions that publish an honest APS cutoff over open/placeholder.
+    quality = 8 if offering.min_aps > 0 else 0
+
+    base = (int(aps_score + subject_score + quality)
+            + _level_priority(offering.course.level))
     bonus = _personalization_bonus(offering, preferred_fields, careers,
                                    preferred_provinces, subject_fields,
                                    career_subject_aligned)
@@ -486,6 +497,43 @@ LEVEL_PRIORITY = {
 
 def _level_priority(level: str) -> int:
     return LEVEL_PRIORITY.get(level, 4)
+
+
+def _search_relevance(offering: CourseOffering, search: str) -> int:
+    """How strongly an offering matches the user's search query (0-60).
+    Course-name hits weigh most, then institution, then description/career."""
+    q = (search or '').strip().lower()
+    if not q:
+        return 0
+    course = offering.course
+    name = (course.name or '').lower()
+    inst = offering.institution
+    inst_name = (inst.name or '').lower()
+    inst_short = (inst.short_name or '').lower()
+
+    if name == q:
+        score = 60
+    elif name.startswith(q):
+        score = 46
+    elif q in name:
+        score = 32
+    else:
+        score = 0
+
+    if q == inst_short or q in inst_name:
+        score = max(score, 22)
+
+    if score == 0:
+        haystack = ' '.join(filter(None, [
+            course.description or '', course.career_opportunities or '',
+        ])).lower()
+        if q in haystack:
+            score = 12
+        else:
+            tokens = [t for t in re.split(r'[^a-z0-9]+', q) if len(t) > 2]
+            if tokens and any(t in name for t in tokens):
+                score = 8
+    return score
 
 
 def match_courses(
@@ -577,6 +625,13 @@ def match_courses(
         if not include_placeholders and match.get('placeholder'):
             continue
 
+        # Search relevance — when the user typed a query, how strongly this
+        # offering matches it dominates ordering, with fit as the tie-breaker.
+        if search:
+            rel = _search_relevance(offering, search)
+            match['relevance'] = rel
+            match['score'] += rel
+
         results.append({
             'offering_id':           offering.id,
             'course_id':             offering.course_id,
@@ -602,10 +657,20 @@ def match_courses(
             'match':                 match,
         })
 
-    results.sort(key=lambda r: (
-        CATEGORY_ORDER.get(r['match']['category'], 9),
-        -r['match']['score'],
-    ))
+    if search:
+        # Search: rank by overall score (relevance + fit) so the most
+        # relevant result leads, regardless of qualify/gap bucket — but
+        # nudge eligible courses up on ties so "what I can get into" wins.
+        results.sort(key=lambda r: (
+            -r['match']['score'],
+            CATEGORY_ORDER.get(r['match']['category'], 9),
+        ))
+    else:
+        # Default: best-qualifying first, then by fit score.
+        results.sort(key=lambda r: (
+            CATEGORY_ORDER.get(r['match']['category'], 9),
+            -r['match']['score'],
+        ))
 
     return results[:limit]
 

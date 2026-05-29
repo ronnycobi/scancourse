@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/models/aps_model.dart';
 import '../../../providers/aps_provider.dart';
 import '../../widgets/common/loading_button.dart';
 
@@ -142,6 +143,62 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
     ];
     _electives =
         List.generate(_minElectives, (_) => _SubjectEntry(options: _electiveOptions));
+
+    // Pre-fill from the user's latest APS so "Edit Marks" opens with their
+    // existing subjects + marks instead of a blank form.
+    final aps = ref.read(latestApsProvider).valueOrNull;
+    if (aps != null && aps.subjects.isNotEmpty) {
+      _prefill(aps.subjects);
+    }
+  }
+
+  void _prefill(List<ApsSubject> subjects) {
+    // Switch to IEB if any Advanced Programme subject is present.
+    _isIeb = subjects.any((s) =>
+        s.isAdvancedProgramme ||
+        s.name.toLowerCase().contains('advanced programme'));
+    final opts = _electiveOptions;
+    for (final e in _electives) {
+      e.options = opts;
+    }
+
+    final leftovers = <ApsSubject>[];
+    for (final s in subjects) {
+      final lower = s.name.toLowerCase();
+      final markStr = s.mark > 0 ? s.mark.toString() : '';
+      if (s.isLifeOrientation || lower == 'life orientation' || lower == 'lo') {
+        _compulsory[3].mark.text = markStr;
+      } else if (lower.contains('home language')) {
+        _compulsory[0].name = s.name;
+        _compulsory[0].mark.text = markStr;
+      } else if (lower.contains('first additional language')) {
+        _compulsory[1].name = s.name;
+        _compulsory[1].mark.text = markStr;
+      } else if (s.normalizedName == 'mathematics' ||
+          s.normalizedName == 'mathematical literacy' ||
+          lower == 'mathematics' ||
+          lower == 'mathematical literacy') {
+        _compulsory[2].name =
+            lower.contains('lit') ? 'Mathematical Literacy' : 'Mathematics';
+        _compulsory[2].mark.text = markStr;
+      } else {
+        leftovers.add(s);
+      }
+    }
+
+    // Fill / grow elective rows from whatever's left.
+    for (var i = 0; i < leftovers.length; i++) {
+      final s = leftovers[i];
+      if (i < _electives.length) {
+        _electives[i].name = s.name;
+        _electives[i].mark.text = s.mark > 0 ? s.mark.toString() : '';
+      } else if (_electives.length < _maxElectives) {
+        final e = _SubjectEntry(options: opts);
+        e.name = s.name;
+        e.mark.text = s.mark > 0 ? s.mark.toString() : '';
+        _electives.add(e);
+      }
+    }
   }
 
   void _setBoard(bool ieb) {
@@ -440,13 +497,21 @@ class _SubjectRow extends StatelessWidget {
               style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
             ),
           )
-        // Languages + electives — dropdown of canonical names.
+        // Languages + electives — dropdown of canonical names. Include the
+        // current value even if it's not in the base list (e.g. a pre-filled
+        // name from OCR) so it displays instead of asserting/crashing.
         : DropdownButtonFormField<String>(
             value: entry.name,
             isExpanded: true,
             decoration: _dec(hint),
             style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-            items: (entry.options ?? const [])
+            items: <String>[
+              ...(entry.options ?? const []),
+              if (entry.name != null &&
+                  entry.name!.isNotEmpty &&
+                  !(entry.options ?? const []).contains(entry.name))
+                entry.name!,
+            ]
                 .map((o) => DropdownMenuItem(
                       value: o,
                       child: Text(o,

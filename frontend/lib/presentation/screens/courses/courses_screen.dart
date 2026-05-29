@@ -86,16 +86,19 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
     // Hide the "scan your marks" banner once the user has uploaded ANY report,
     // even if the OCR is still pending and APS is 0.
     final hasReports = (reportsAsync.valueOrNull?.isNotEmpty) ?? false;
-    // When the user is actively searching, show a plain DB browse of
-    // EVERYTHING matching the query — don't run it through the personalised
-    // matcher (which only returns courses they qualify for). Searching is
-    // about exploring the catalogue, not seeing filtered matches.
+    // Three modes:
+    //  • searching + has APS → ranked, comprehensive search (best-fit-first,
+    //    every matching course shown — qualify or not).
+    //  • not searching + has APS → personalised matcher with Qualify/Gap tabs.
+    //  • no APS → plain DB browse/search.
     final isSearching = _query.isNotEmpty;
+    final searchWithAps = isSearching && hasAps;
     final showMatcher = hasAps && !isSearching;
     final matchAsync =
         showMatcher ? ref.watch(courseMatchProvider(paramStr)) : null;
-    final listAsync =
-        showMatcher ? null : ref.watch(courseListProvider(paramStr));
+    final searchAsync =
+        searchWithAps ? ref.watch(courseSearchProvider(_query)) : null;
+    final listAsync = hasAps ? null : ref.watch(courseListProvider(paramStr));
 
     return Scaffold(
       appBar: AppBar(
@@ -254,15 +257,75 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
               ),
             ),
 
-          // Results: personalised matcher only when the user has an APS
-          // AND isn't searching. Searching (or no APS) → plain DB browse.
+          // Results: ranked search (APS users) → matcher tabs → plain browse.
           Expanded(
-            child: showMatcher
-                ? _buildMatcherBody(context, ref, matchAsync!, paramStr)
-                : _buildBrowseBody(context, ref, listAsync!, paramStr),
+            child: searchWithAps
+                ? _buildSearchBody(context, ref, searchAsync!)
+                : showMatcher
+                    ? _buildMatcherBody(context, ref, matchAsync!, paramStr)
+                    : _buildBrowseBody(context, ref, listAsync!, paramStr),
           ),
         ],
       ),
+    );
+  }
+
+  /// Ranked search results — one flat best-fit-first list, every matching
+  /// course (qualify or not), each card showing its verdict.
+  Widget _buildSearchBody(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<List<OfferingMatchModel>> async,
+  ) {
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.wifi_off_outlined,
+                  size: 56, color: AppColors.textHint),
+              const SizedBox(height: 12),
+              const Text('Could not run your search'),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () => ref.invalidate(courseSearchProvider(_query)),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (results) {
+        if (results.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.search_off, size: 56, color: AppColors.textHint),
+                const SizedBox(height: 12),
+                Text('No courses match "$_query"',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 6),
+                const Text('Try a different word or check the spelling',
+                    style: TextStyle(color: AppColors.textSecondary)),
+              ],
+            ),
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: results.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (_, i) => _OfferingCard(
+            offering: results[i],
+            onTap: () => context.push('/courses/${results[i].courseId}'),
+          ),
+        );
+      },
     );
   }
 
