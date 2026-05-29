@@ -64,20 +64,23 @@ const _electiveSubjects = [
   'Technical Sciences',
   'Tourism',
   'Visual Arts',
-  // IEB Advanced Programme subjects — taken in addition to the 7 NSC
-  // subjects. Not counted in standard APS (handled by the backend).
+];
+
+/// IEB Advanced Programme subjects — taken in addition to the 7 NSC
+/// subjects, ONLY by IEB learners. Not counted in standard APS (the
+/// backend flags + excludes them). Shown in the dropdown only when the
+/// learner selects the IEB curriculum.
+const _advancedProgrammeList = [
   'Advanced Programme Mathematics',
   'Advanced Programme English',
   'Advanced Programme Afrikaans',
 ];
+final _advancedProgrammeSubjects = _advancedProgrammeList.toSet();
 
-/// IEB Advanced Programme subjects — shown with a "not counted in APS"
-/// note, like Life Orientation.
-const _advancedProgrammeSubjects = {
-  'Advanced Programme Mathematics',
-  'Advanced Programme English',
-  'Advanced Programme Afrikaans',
-};
+/// DBE learners see only the standard NSC electives; IEB learners also
+/// get the Advanced Programme subjects appended.
+List<String> electiveOptionsFor({required bool isIeb}) =>
+    isIeb ? [..._electiveSubjects, ..._advancedProgrammeList] : _electiveSubjects;
 
 class _SubjectEntry {
   // Selected subject name. For fixed rows (Maths / LO) this is set in code
@@ -87,7 +90,7 @@ class _SubjectEntry {
   final bool compulsory;
   final bool isLo;
   final bool fixed; // Maths + LO — name shown read-only
-  final List<String>? options; // null → fixed/read-only
+  List<String>? options; // null → fixed/read-only (mutable: board switch)
 
   _SubjectEntry({
     this.name,
@@ -113,11 +116,16 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _useMathsLit = false;
+  // Curriculum board — defaults to DBE (public schools); IEB learners
+  // switch this to reveal the Advanced Programme subjects.
+  bool _isIeb = false;
 
   // 4 compulsory + 3 electives = 7 fixed; 8th is optional
   late final List<_SubjectEntry> _compulsory;
   late final List<_SubjectEntry> _electives;
   _SubjectEntry? _extraElective;
+
+  List<String> get _electiveOptions => electiveOptionsFor(isIeb: _isIeb);
 
   @override
   void initState() {
@@ -129,7 +137,22 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       _SubjectEntry(
           name: 'Life Orientation', compulsory: true, isLo: true, fixed: true),
     ];
-    _electives = List.generate(3, (_) => _SubjectEntry(options: _electiveSubjects));
+    _electives = List.generate(3, (_) => _SubjectEntry(options: _electiveOptions));
+  }
+
+  void _setBoard(bool ieb) {
+    setState(() {
+      _isIeb = ieb;
+      final opts = _electiveOptions;
+      for (final e in [..._electives, if (_extraElective != null) _extraElective!]) {
+        e.options = opts;
+        // Switching back to DBE: clear any Advanced Programme picks that
+        // are no longer valid options.
+        if (!ieb && _advancedProgrammeSubjects.contains(e.name)) {
+          e.name = null;
+        }
+      }
+    });
   }
 
   @override
@@ -148,7 +171,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   }
 
   void _addExtra() {
-    setState(() => _extraElective = _SubjectEntry(options: _electiveSubjects));
+    setState(() => _extraElective = _SubjectEntry(options: _electiveOptions));
   }
 
   void _removeExtra() {
@@ -208,7 +231,60 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                     Text('Standard NSC: 7 subjects (4 compulsory + 3 elective). '
                         'An optional 8th subject can be added.',
                         style: Theme.of(context).textTheme.bodySmall),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+
+                    // --- Curriculum board (DBE default / IEB) ---
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.school_outlined,
+                              size: 18, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text('Exam board',
+                                style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13)),
+                          ),
+                          SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(
+                                  value: false,
+                                  label: Text('DBE',
+                                      style: TextStyle(fontSize: 12))),
+                              ButtonSegment(
+                                  value: true,
+                                  label: Text('IEB',
+                                      style: TextStyle(fontSize: 12))),
+                            ],
+                            selected: {_isIeb},
+                            onSelectionChanged: (s) => _setBoard(s.first),
+                            style: const ButtonStyle(
+                                visualDensity: VisualDensity.compact),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_isIeb)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 4),
+                        child: Text(
+                          'IEB: Advanced Programme subjects are available below '
+                          '(recorded but not counted in APS).',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textHint,
+                              fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
 
                     // --- Compulsory subjects ---
                     _SectionLabel(label: 'Compulsory Subjects', count: 4),
