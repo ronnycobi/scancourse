@@ -154,11 +154,26 @@ def recommend_courses(user, limit: int = 20) -> list[dict]:
     level_bonus_map = LEVEL_BONUS_BACHELOR_TIER if bachelor_tier else LEVEL_BONUS_DIPLOMA_TIER
 
     career = getattr(user, 'dream_career', None) or None
+    # Pass all multi-select preferences so recommendations honour every
+    # chosen field / career / province, not just the first.
+    preferred_fields = list(getattr(user, 'preferred_fields', None) or [])
+    if not preferred_fields and getattr(user, 'preferred_field', None):
+        preferred_fields = [user.preferred_field]
+    careers = list(getattr(user, 'dream_careers', None) or [])
+    if not careers and career:
+        careers = [career]
+    preferred_provinces = list(
+        getattr(user, 'preferred_study_provinces', None) or []
+    )
+    if not preferred_provinces and getattr(user, 'preferred_study_province', None):
+        preferred_provinces = [user.preferred_study_province]
+
     matched = match_courses(
         user_aps=user_aps,
         user_subjects=user_subjects,
-        preferred_field=getattr(user, 'preferred_field', None) or None,
-        career=career,
+        preferred_fields=preferred_fields,
+        careers=careers,
+        preferred_provinces=preferred_provinces,
         include_not_qualified=False,
         include_placeholders=False,
         limit=500,

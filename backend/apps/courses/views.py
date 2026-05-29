@@ -123,8 +123,19 @@ class CourseMatchView(APIView):
             limit = 200
 
         user = request.user
-        preferred_field = getattr(user, 'preferred_field', None) or None
-        career = getattr(user, 'dream_career', None) or None
+        # Honour ALL of the student's chosen preferences (multi-select in
+        # onboarding), falling back to the legacy singular fields.
+        preferred_fields = list(getattr(user, 'preferred_fields', None) or [])
+        if not preferred_fields and getattr(user, 'preferred_field', None):
+            preferred_fields = [user.preferred_field]
+        careers = list(getattr(user, 'dream_careers', None) or [])
+        if not careers and getattr(user, 'dream_career', None):
+            careers = [user.dream_career]
+        preferred_provinces = list(
+            getattr(user, 'preferred_study_provinces', None) or []
+        )
+        if not preferred_provinces and getattr(user, 'preferred_study_province', None):
+            preferred_provinces = [user.preferred_study_province]
 
         # Evaluate broadly (the matcher iterates every offering anyway) so
         # the per-category caps below aren't starved. Without this, a global
@@ -137,8 +148,9 @@ class CourseMatchView(APIView):
             field=field,
             institution_type=institution_type,
             level=level,
-            preferred_field=preferred_field,
-            career=career,
+            preferred_fields=preferred_fields,
+            careers=careers,
+            preferred_provinces=preferred_provinces,
             search=search or None,
             include_not_qualified=include_not_qualified,
             include_placeholders=include_placeholders,

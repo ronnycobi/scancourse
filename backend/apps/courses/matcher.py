@@ -238,56 +238,70 @@ def _top_subject_fields(student_subjects: list[dict], n: int = 3) -> set[str]:
 
 def _personalization_bonus(
     offering: CourseOffering,
-    preferred_field: str | None,
-    career: str | None,
+    preferred_fields: set[str] | None,
+    careers: list[str] | None,
+    preferred_provinces: set[str] | None = None,
     subject_fields: set[str] | None = None,
     career_subject_aligned: bool = True,
 ) -> int:
     """Score bonus reflecting how well this offering matches the student.
 
-    Subject strengths are treated as the primary signal — a student with
-    strong sciences gets a boost on science/engineering/health programmes
-    even if their stated dream career doesn't line up. Career and preferred
-    field still contribute, but only when the subject profile supports it.
+    Honours ALL of the student's preferences — they can pick multiple
+    preferred fields, multiple dream careers and multiple study provinces
+    in onboarding, and every one of them is checked here (not just the
+    first). Subject strengths remain the primary signal; preferred fields,
+    careers and provinces add on top.
     """
     bonus = 0
     course = offering.course
     field = course.field
     subject_fields = subject_fields or set()
+    preferred_fields = preferred_fields or set()
+    careers = [c for c in (careers or []) if c]
+    preferred_provinces = preferred_provinces or set()
 
     # Subject-driven affinity — biggest signal: 0-25
     if field in subject_fields:
         bonus += 20
 
-    # Preferred field match — only meaningful if subjects support it
-    if preferred_field and field == preferred_field:
+    # Preferred field match — any of the student's chosen fields counts.
+    if field in preferred_fields:
         if not subject_fields or field in subject_fields:
             bonus += 12
         else:
             bonus += 4   # weak signal: pref doesn't match subjects
 
-    # Dream career → field match — gated by subject alignment
-    career_field = _field_for_career(career)
-    if career_field and field == career_field:
-        if career_subject_aligned:
-            bonus += 10
-        else:
-            bonus += 3   # career doesn't match subject strengths
-
-    # Keyword overlap with course name / description / career_opportunities
-    if career and career_subject_aligned:
+    # Dream careers → take the BEST-matching career (don't stack them, or a
+    # learner who listed 4 careers would out-score everyone).
+    if careers:
         haystack = ' '.join(filter(None, [
             course.name or '',
             course.description or '',
             course.career_opportunities or '',
         ])).lower()
-        career_lc = career.lower()
-        if career_lc in haystack:
-            bonus += 12
-        else:
-            tokens = [t for t in re.split(r'[^a-z]+', career_lc) if len(t) > 3]
-            if any(t in haystack for t in tokens):
-                bonus += 4
+        best_career = 0
+        for career in careers:
+            b = 0
+            career_field = _field_for_career(career)
+            if career_field and field == career_field:
+                b += 10 if career_subject_aligned else 3
+            if career_subject_aligned:
+                career_lc = career.lower()
+                if career_lc in haystack:
+                    b += 12
+                else:
+                    tokens = [t for t in re.split(r'[^a-z]+', career_lc)
+                              if len(t) > 3]
+                    if any(t in haystack for t in tokens):
+                        b += 4
+            best_career = max(best_career, b)
+        bonus += best_career
+
+    # Preferred study province — soft boost for offerings located in any of
+    # the provinces the student wants to study in.
+    if preferred_provinces and offering.institution.province in preferred_provinces:
+        bonus += 8
+
     return bonus
 
 
@@ -298,8 +312,9 @@ def _evaluate_offering(
     user_aps: int,
     student_subjects: list[dict],
     has_maths_lit: bool,
-    preferred_field: str | None,
-    career: str | None,
+    preferred_fields: set[str] | None,
+    careers: list[str] | None,
+    preferred_provinces: set[str] | None = None,
     subject_fields: set[str] | None = None,
     career_subject_aligned: bool = True,
 ) -> dict:
@@ -346,8 +361,9 @@ def _evaluate_offering(
         subject_penalty = (len(missing) * 12) + sum(g['gap'] * 4 for g in low)
         subject_score = max(40 - subject_penalty, 0)
         base = int(aps_score + subject_score) + _level_priority(offering.course.level)
-        bonus = _personalization_bonus(offering, preferred_field, career,
-                                       subject_fields, career_subject_aligned)
+        bonus = _personalization_bonus(offering, preferred_fields, careers,
+                                       preferred_provinces, subject_fields,
+                                       career_subject_aligned)
         return {
             'category': category,
             'aps_surplus': aps_surplus,
@@ -362,7 +378,9 @@ def _evaluate_offering(
     # Placeholder data: no requirements AND no APS set.
     # Treat as eligible but heavily downweight so real matches surface first.
     if not has_data:
-        bonus = _personalization_bonus(offering, preferred_field, career, subject_fields, career_subject_aligned)
+        bonus = _personalization_bonus(offering, preferred_fields, careers,
+                                       preferred_provinces, subject_fields,
+                                       career_subject_aligned)
         return {
             'category': 'eligible',
             'aps_surplus': 0,
@@ -432,7 +450,9 @@ def _evaluate_offering(
     subject_penalty = (len(missing) * 15) + sum(g['gap'] * 5 for g in low)
     subject_score = max(40 - subject_penalty, 0)                  # 0-40
     base = int(aps_score + subject_score) + _level_priority(offering.course.level)
-    bonus = _personalization_bonus(offering, preferred_field, career, subject_fields, career_subject_aligned)
+    bonus = _personalization_bonus(offering, preferred_fields, careers,
+                                   preferred_provinces, subject_fields,
+                                   career_subject_aligned)
 
     return {
         'category': category,
@@ -477,6 +497,9 @@ def match_courses(
     level: str | None = None,
     preferred_field: str | None = None,
     career: str | None = None,
+    preferred_fields: list[str] | None = None,
+    careers: list[str] | None = None,
+    preferred_provinces: list[str] | None = None,
     search: str | None = None,
     include_not_qualified: bool = False,
     include_placeholders: bool = False,
@@ -485,19 +508,35 @@ def match_courses(
     """
     Match a student's profile against active CourseOfferings.
 
-    `preferred_field` and `career` add a personalization bonus so that
-    courses relevant to the student's interests rank higher.
+    Personalisation honours MULTIPLE preferences (students can pick several
+    preferred fields, dream careers and study provinces in onboarding):
+      - `preferred_fields` / `careers` / `preferred_provinces` — lists
+      - `preferred_field` / `career` — legacy singular, merged in for
+        backward compatibility.
     `include_placeholders=False` hides offerings that have no subject
     requirements AND min_aps=0 (likely incomplete scrape data) so they
     don't drown out real matches.
     """
     has_maths_lit = _has_maths_literacy(user_subjects)
     subject_fields = _top_subject_fields(user_subjects, n=4)
-    career_field = _field_for_career(career)
-    # If career is given but subjects don't support it, mark mis-aligned.
-    # Empty subject_fields → no signal either way → assume aligned (cold start).
+
+    # Merge singular + plural preference inputs into canonical collections.
+    pref_fields: set[str] = set(preferred_fields or [])
+    if preferred_field:
+        pref_fields.add(preferred_field)
+    career_list: list[str] = [c for c in (careers or []) if c]
+    if career and career not in career_list:
+        career_list.append(career)
+    pref_provinces: set[str] = set(preferred_provinces or [])
+
+    # Aligned if ANY chosen career's field matches the student's strong
+    # subjects (or there's no career/subject signal — cold start).
+    career_fields = {_field_for_career(c) for c in career_list} - {None}
     career_subject_aligned = (
-        not career or not career_field or not subject_fields or career_field in subject_fields
+        not career_list
+        or not career_fields
+        or not subject_fields
+        or bool(career_fields & subject_fields)
     )
 
     qs = (
@@ -528,7 +567,7 @@ def match_courses(
     for offering in qs.iterator(chunk_size=500):
         match = _evaluate_offering(
             offering, user_aps, user_subjects, has_maths_lit,
-            preferred_field, career,
+            pref_fields, career_list, pref_provinces,
             subject_fields=subject_fields,
             career_subject_aligned=career_subject_aligned,
         )
