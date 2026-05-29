@@ -104,17 +104,26 @@ def calculate_aps(subjects: list[dict]) -> dict:
             'aps_points': aps_points,
             'is_life_orientation': is_lo,
             'is_advanced_programme': is_ap,
-            # Convenience flag: does this subject contribute to APS?
+            # Eligible to count toward APS at all (i.e. not LO/AP).
             'counts_in_aps': not (is_lo or is_ap),
+            # Set below: whether it actually made the best-6 used for APS.
+            'counted_in_aps': False,
         })
 
-    # APS excludes Life Orientation AND Advanced Programme subjects.
-    total_aps = sum(s['aps_points'] for s in processed if s['counts_in_aps'])
+    # SA universities compute APS from the student's BEST 6 subjects,
+    # excluding Life Orientation and IEB Advanced Programme subjects.
+    # Many learners (especially IEB) take 8-11 subjects, so we must pick
+    # the top 6 by points rather than summing everything.
+    eligible = [s for s in processed if s['counts_in_aps']]
+    top6 = sorted(eligible, key=lambda s: s['aps_points'], reverse=True)[:6]
+    for s in top6:
+        s['counted_in_aps'] = True
 
-    eligible_count = len([s for s in processed if s['counts_in_aps']])
+    total_aps = sum(s['aps_points'] for s in top6)
 
     return {
         'total_aps': total_aps,
         'subjects': processed,
-        'eligible_subjects_count': eligible_count,
+        'eligible_subjects_count': len(eligible),
+        'counted_subjects_count': len(top6),
     }
