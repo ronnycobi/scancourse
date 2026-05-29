@@ -402,6 +402,10 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
               child: RefreshIndicator(
                 onRefresh: () => _refreshAll(ref, paramStr),
                 child: ListView.separated(
+                  // Fresh key per page → list remounts scrolled to the top
+                  // when you tap Next/Prev (otherwise page 2 opens scrolled
+                  // to the bottom).
+                  key: ValueKey('browse-$currentPage'),
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 8),
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -500,6 +504,10 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
                                   child: RefreshIndicator(
                                     onRefresh: () => _refreshAll(ref, paramStr),
                                     child: ListView.separated(
+                                      // Fresh key per tab+page → remounts at
+                                      // the top when paging (no more landing
+                                      // scrolled to the bottom on page 2).
+                                      key: ValueKey('matcher-$category-$currentPage'),
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 16, vertical: 8),
                                       physics: const AlwaysScrollableScrollPhysics(),
