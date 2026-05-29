@@ -56,6 +56,7 @@ class OfferingMatchModel {
   final String? institutionApplyUrl;
   final String? campus;
   final int minAps;
+  final String? applicationDeadline;
   final String? programmeCode;
   final List<dynamic> subjectRequirements;
   final MatchDetail match;
@@ -79,6 +80,7 @@ class OfferingMatchModel {
     this.institutionApplyUrl,
     this.campus,
     required this.minAps,
+    this.applicationDeadline,
     this.programmeCode,
     required this.subjectRequirements,
     required this.match,
@@ -104,6 +106,7 @@ class OfferingMatchModel {
         institutionApplyUrl: json['institution_apply_url'] as String?,
         campus: json['campus'] as String?,
         minAps: json['min_aps'] as int,
+        applicationDeadline: json['application_deadline'] as String?,
         programmeCode: json['programme_code'] as String?,
         subjectRequirements: json['subject_requirements'] as List? ?? [],
         match: MatchDetail.fromJson(

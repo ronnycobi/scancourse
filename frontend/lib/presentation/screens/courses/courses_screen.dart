@@ -7,7 +7,6 @@ import '../../../core/constants/app_constants.dart';
 import '../../../providers/course_provider.dart';
 import '../../../providers/aps_provider.dart';
 import '../../../data/models/course_model.dart';
-import '../../widgets/common/remote_logo.dart';
 import '../../widgets/common/bookmark_button.dart';
 
 class CoursesScreen extends ConsumerStatefulWidget {
@@ -59,12 +58,19 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
   @override
   Widget build(BuildContext context) {
     final filter = ref.watch(courseFilterProvider);
-    final paramParts = [
-      if (filter.field != null) 'field=${filter.field}',
-      if (filter.province != null) 'province=${filter.province}',
-      if (filter.institutionType != null) 'type=${filter.institutionType}',
-      if (_query.isNotEmpty) 'search=${Uri.encodeComponent(_query)}',
-    ];
+    final searching = _query.isNotEmpty;
+    // While searching, IGNORE the field/province/type filter chips and hit
+    // the whole catalogue for the search term — "bring what the user
+    // searched for, whatever is in the DB". The chips only constrain the
+    // personalised browse/matcher views, not free-text search.
+    final paramParts = searching
+        ? ['search=${Uri.encodeComponent(_query)}']
+        : [
+            if (filter.field != null) 'field=${filter.field}',
+            if (filter.province != null) 'province=${filter.province}',
+            if (filter.institutionType != null)
+              'institution_type=${filter.institutionType}',
+          ];
     final paramStr = paramParts.isEmpty ? null : paramParts.join('&');
     if (paramStr != _lastParamStr) {
       _lastParamStr = paramStr;
@@ -80,15 +86,21 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
     // Hide the "scan your marks" banner once the user has uploaded ANY report,
     // even if the OCR is still pending and APS is 0.
     final hasReports = (reportsAsync.valueOrNull?.isNotEmpty) ?? false;
+    // When the user is actively searching, show a plain DB browse of
+    // EVERYTHING matching the query — don't run it through the personalised
+    // matcher (which only returns courses they qualify for). Searching is
+    // about exploring the catalogue, not seeing filtered matches.
+    final isSearching = _query.isNotEmpty;
+    final showMatcher = hasAps && !isSearching;
     final matchAsync =
-        hasAps ? ref.watch(courseMatchProvider(paramStr)) : null;
+        showMatcher ? ref.watch(courseMatchProvider(paramStr)) : null;
     final listAsync =
-        hasAps ? null : ref.watch(courseListProvider(paramStr));
+        showMatcher ? null : ref.watch(courseListProvider(paramStr));
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Find Courses'),
-        bottom: hasAps
+        bottom: showMatcher
             ? TabBar(
                 controller: _tabCtrl,
                 tabs: _tabLabels.map((l) => Tab(text: l)).toList(),
@@ -242,9 +254,10 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen>
               ),
             ),
 
-          // Results: matcher when APS, plain list when no APS.
+          // Results: personalised matcher only when the user has an APS
+          // AND isn't searching. Searching (or no APS) → plain DB browse.
           Expanded(
-            child: hasAps
+            child: showMatcher
                 ? _buildMatcherBody(context, ref, matchAsync!, paramStr)
                 : _buildBrowseBody(context, ref, listAsync!, paramStr),
           ),
@@ -565,116 +578,71 @@ class _BrowseCourseCard extends StatelessWidget {
     return days >= 0 && days <= 14;
   }
 
-  /// Best institution name we have. Prefer flat fields from the list
-  /// endpoint (e.g. "Wits") over the full name we'd compute from
-  /// offerings. Falls back to the offering's institution if available.
-  ({String name, String? short, String? city, String? logoUrl})?
-      get _displayInstitution {
-    if ((course.institutionName ?? course.institutionShort) != null) {
-      return (
-        name: course.institutionShort?.isNotEmpty == true
-            ? course.institutionShort!
-            : (course.institutionName ?? ''),
-        short: course.institutionShort,
-        city: course.institutionCity,
-        logoUrl: course.institutionLogoUrl,
-      );
+  // Full institution name (e.g. "University of KwaZulu-Natal"), never the
+  // short code. Mirrors the home recommended card.
+  String? get _fullInstitutionName {
+    if (course.institutionName != null &&
+        course.institutionName!.isNotEmpty) {
+      return course.institutionName;
     }
     final inst = _bestOffering?.institution;
-    if (inst == null) return null;
-    return (
-      name: inst.shortName?.isNotEmpty == true ? inst.shortName! : inst.name,
-      short: inst.shortName,
-      city: inst.city,
-      logoUrl: inst.logoUrl,
-    );
+    if (inst != null && inst.name.isNotEmpty) return inst.name;
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final inst = _displayInstitution;
     final minAps = _bestOffering?.minAps ?? course.minAps ?? 0;
     final fieldLabel = AppConstants.studyFields[course.field] ?? course.field;
     final levelLabel = course.level.toUpperCase().replaceAll('_', ' ');
+    final fullName = _fullInstitutionName;
 
     return _CardChrome(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Institution row ──────────────────────────────────────────
-          if (inst != null) ...[
-            Row(
-              children: [
-                RemoteLogo(
-                  url: inst.logoUrl,
-                  fallbackInitial: inst.name,
-                  size: 36,
+          // ── Course name + bookmark ───────────────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  course.name,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      height: 1.25,
+                      color: AppColors.textPrimary),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        inst.name, // short name preferred
-                        style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (inst.city != null && inst.city!.isNotEmpty)
-                        Text(
-                          inst.city!,
-                          style: const TextStyle(
-                              fontSize: 11, color: AppColors.textSecondary),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-                BookmarkButton(
-                  itemType: 'course',
-                  itemId: course.id,
-                  inactiveColor: AppColors.textHint,
-                  activeColor: AppColors.primary,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(height: 1, color: AppColors.border),
-            const SizedBox(height: 12),
-          ] else
-            // No institution data — still show bookmark
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                BookmarkButton(
-                  itemType: 'course',
-                  itemId: course.id,
-                  inactiveColor: AppColors.textHint,
-                  activeColor: AppColors.primary,
-                ),
-              ],
-            ),
-
-          // ── Course name ──────────────────────────────────────────────
-          Text(
-            course.name,
-            style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                height: 1.25,
-                color: AppColors.textPrimary),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+              ),
+              BookmarkButton(
+                itemType: 'course',
+                itemId: course.id,
+                inactiveColor: AppColors.textHint,
+                activeColor: AppColors.primary,
+              ),
+            ],
           ),
+          const SizedBox(height: 4),
+
+          // ── Institution name (below the course name) ─────────────────
+          if (fullName != null)
+            Text(
+              fullName,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           const SizedBox(height: 8),
 
-          // ── Meta chips: level + field ────────────────────────────────
+          // ── Meta chips: level + field + duration ─────────────────────
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -699,23 +667,11 @@ class _BrowseCourseCard extends StatelessWidget {
                   foreground: AppColors.textSecondary,
                   bordered: true,
                 ),
-              if (_deadlineLabel != null)
-                _SoftChip(
-                  label: _deadlineLabel!,
-                  icon: Icons.event_outlined,
-                  background: _deadlineUrgent
-                      ? AppColors.error.withOpacity(0.10)
-                      : AppColors.surface,
-                  foreground: _deadlineUrgent
-                      ? AppColors.error
-                      : AppColors.textSecondary,
-                  bordered: !_deadlineUrgent,
-                ),
             ],
           ),
           const SizedBox(height: 12),
 
-          // ── APS requirement footer ───────────────────────────────────
+          // ── Bottom: Min APS chip (left) + closing date (right) ───────
           Row(
             children: [
               Container(
@@ -732,7 +688,7 @@ class _BrowseCourseCard extends StatelessWidget {
                         size: 14, color: AppColors.primary),
                     const SizedBox(width: 6),
                     Text(
-                      minAps > 0 ? 'Min APS  $minAps' : 'Open programme',
+                      minAps > 0 ? 'Min APS  $minAps' : 'Open',
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -742,16 +698,28 @@ class _BrowseCourseCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              const Text(
-                'View details',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary),
-              ),
-              const SizedBox(width: 2),
-              const Icon(Icons.arrow_forward_rounded,
-                  size: 16, color: AppColors.primary),
+              if (_deadlineLabel != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.event_outlined,
+                        size: 14,
+                        color: _deadlineUrgent
+                            ? AppColors.error
+                            : AppColors.textSecondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      _deadlineLabel!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: _deadlineUrgent
+                            ? AppColors.error
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ],
@@ -1041,6 +1009,30 @@ class _OfferingCard extends StatelessWidget {
     }
   }
 
+  // "Closes 30 Sep" / "Closed", or null if no deadline on record.
+  String? get _deadlineLabel {
+    final raw = offering.applicationDeadline;
+    if (raw == null || raw.isEmpty) return null;
+    final date = DateTime.tryParse(raw);
+    if (date == null) return null;
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final now = DateTime.now();
+    if (date.isBefore(DateTime(now.year, now.month, now.day))) return 'Closed';
+    return 'Closes ${date.day} ${months[date.month]}';
+  }
+
+  bool get _deadlineUrgent {
+    final raw = offering.applicationDeadline;
+    if (raw == null) return false;
+    final date = DateTime.tryParse(raw);
+    if (date == null) return false;
+    final days = date.difference(DateTime.now()).inDays;
+    return days >= 0 && days <= 14;
+  }
+
   @override
   Widget build(BuildContext context) {
     final m = offering.match;
@@ -1049,46 +1041,20 @@ class _OfferingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Institution row + bookmark ───────────────────────────────
+          // ── Course name + bookmark (mirrors the home card) ───────────
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              RemoteLogo(
-                url: offering.institutionLogoUrl,
-                fallbackInitial:
-                    offering.institutionShort?.isNotEmpty == true
-                        ? offering.institutionShort!
-                        : offering.institutionName,
-                size: 36,
-              ),
-              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      // Prefer the short brand name ("Wits") over the
-                      // formal name ("University of the Witwatersrand")
-                      // so it doesn't truncate on small phones.
-                      offering.institutionShort?.isNotEmpty == true
-                          ? offering.institutionShort!
-                          : offering.institutionName,
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      [offering.institutionCity, offering.institutionProvince]
-                          .where((s) => s != null && s.toString().isNotEmpty)
-                          .join(' · '),
-                      style: const TextStyle(
-                          fontSize: 11, color: AppColors.textSecondary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                child: Text(
+                  offering.courseName,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      height: 1.25,
+                      color: AppColors.textPrimary),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               BookmarkButton(
@@ -1099,18 +1065,18 @@ class _OfferingCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: AppColors.border),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
 
-          // ── Course name ──────────────────────────────────────────────
+          // ── Institution name (below the course name) ─────────────────
           Text(
-            offering.courseName,
+            offering.institutionName.isNotEmpty
+                ? offering.institutionName
+                : (offering.institutionShort ?? ''),
             style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                height: 1.25,
-                color: AppColors.textPrimary),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1141,7 +1107,7 @@ class _OfferingCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // ── Big verdict banner ───────────────────────────────────────
+          // ── Verdict banner (no APS pill — APS sits at the bottom) ─────
           Container(
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1184,22 +1150,6 @@ class _OfferingCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _categoryColor.withOpacity(0.4)),
-                  ),
-                  child: Text(
-                    'APS ${offering.minAps}',
-                    style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: _categoryColor),
-                  ),
-                ),
               ],
             ),
           ),
@@ -1237,6 +1187,59 @@ class _OfferingCard extends StatelessWidget {
                 ),
               ),
           ],
+
+          const SizedBox(height: 12),
+          // ── Bottom: Min APS chip (left) + closing date (right) ───────
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.auto_awesome,
+                        size: 14, color: AppColors.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      offering.minAps > 0 ? 'Min APS  ${offering.minAps}' : 'Open',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              if (_deadlineLabel != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.event_outlined,
+                        size: 14,
+                        color: _deadlineUrgent
+                            ? AppColors.error
+                            : AppColors.textSecondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      _deadlineLabel!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: _deadlineUrgent
+                            ? AppColors.error
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ],
       ),
     );

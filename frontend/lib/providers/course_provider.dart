@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/course_model.dart';
 import '../data/repositories/course_repository.dart';
-import 'auth_provider.dart';
 
 final courseRepositoryProvider = Provider((ref) => CourseRepository());
 
@@ -51,7 +50,7 @@ final courseMatchProvider = FutureProvider.family<Map<String, dynamic>, String?>
   return repo.getMatches(
     field: params['field'],
     province: params['province'],
-    institutionType: params['type'],
+    institutionType: params['institution_type'] ?? params['type'],
     level: params['level'],
     search: params['search'],
   ).timeout(
@@ -103,39 +102,13 @@ class CourseFilterState {
   }
 }
 
-final courseFilterProvider = StateNotifierProvider<CourseFilterNotifier, CourseFilterState>((ref) {
-  final user = ref.read(authStateProvider).user;
-  // Use preferred_field from profile, or map dream career to a field as fallback.
-  final initialField = user?.preferredField ?? _dreamCareerToField(user?.dreamCareer);
-  return CourseFilterNotifier(initialField: initialField);
+final courseFilterProvider =
+    StateNotifierProvider<CourseFilterNotifier, CourseFilterState>((ref) {
+  // Filters start at their default (unset) — nothing is applied until the
+  // user taps a chip and chooses a value. We no longer pre-seed the field
+  // from the profile, which silently constrained results on first open.
+  return CourseFilterNotifier();
 });
-
-String? _dreamCareerToField(String? career) {
-  if (career == null) return null;
-  final c = career.toLowerCase();
-  if (c.contains('account') || c.contains('finance') || c.contains('business') ||
-      c.contains('econom') || c.contains('bank') || c.contains('commerce') ||
-      c.contains('audit') || c.contains('tax')) return 'business';
-  if (c.contains('doctor') || c.contains('nurse') || c.contains('pharm') ||
-      c.contains('medic') || c.contains('dentist') || c.contains('surgeon') ||
-      c.contains('health') || c.contains('physio')) return 'health';
-  if (c.contains('engineer') || c.contains('mechanic') || c.contains('electrical') ||
-      c.contains('civil') || c.contains('chemical') || c.contains('mining')) return 'engineering';
-  if (c.contains('teach') || c.contains('educat') || c.contains('lecturer')) return 'education';
-  if (c.contains('law') || c.contains('attorney') || c.contains('advocate') ||
-      c.contains('legal') || c.contains('judge')) return 'law';
-  if (c.contains('artist') || c.contains('design') || c.contains('graphic') ||
-      c.contains('fashion') || c.contains('film') || c.contains('music')) return 'arts';
-  if (c.contains('farm') || c.contains('agricultur') || c.contains('vet')) return 'agriculture';
-  if (c.contains('program') || c.contains('develop') || c.contains('software') ||
-      c.contains('computer') || c.contains('cyber') || c.contains('data scien') ||
-      c.contains('it ') || c.contains('network')) return 'ict';
-  if (c.contains('scientist') || c.contains('biolog') || c.contains('chemist') ||
-      c.contains('physics') || c.contains('research') || c.contains('geolog')) return 'science';
-  if (c.contains('architect') || c.contains('plann') || c.contains('survey') ||
-      c.contains('construct') || c.contains('propert')) return 'built_environment';
-  return null;
-}
 
 class CourseFilterNotifier extends StateNotifier<CourseFilterState> {
   CourseFilterNotifier({String? initialField})
