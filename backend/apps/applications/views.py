@@ -50,6 +50,18 @@ class ApplicationCreateView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        # Idempotent: (user, institution, course) is unique, so if the student
+        # already tracks this one, return it instead of a 500 IntegrityError.
+        existing = Application.objects.filter(
+            user=request.user,
+            institution=serializer.validated_data.get('institution'),
+            course=serializer.validated_data.get('course'),
+        ).first()
+        if existing:
+            return Response(
+                ApplicationDetailSerializer(existing).data,
+                status=status.HTTP_200_OK,
+            )
         self.perform_create(serializer)
         return Response(
             ApplicationDetailSerializer(serializer.instance).data,

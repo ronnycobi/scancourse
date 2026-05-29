@@ -7,6 +7,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../providers/course_provider.dart';
 import '../../../providers/aps_provider.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/application_provider.dart';
 import '../../../data/models/course_model.dart';
 import '../../widgets/common/bookmark_button.dart';
 import '../../widgets/common/remote_logo.dart';
@@ -77,6 +78,55 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
       return (a.institution?.name ?? '').compareTo(b.institution?.name ?? '');
     });
     return list;
+  }
+
+  /// Add this institution+course to the student's Applications board.
+  Future<void> _trackApplication(
+    BuildContext context,
+    WidgetRef ref, {
+    required int? institutionId,
+    required int courseId,
+    String? applyUrl,
+    String? deadline,
+  }) async {
+    if (institutionId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Institution info missing.')),
+      );
+      return;
+    }
+    try {
+      await ref.read(applicationRepositoryProvider).create(
+            institutionId: institutionId,
+            courseId: courseId,
+            applicationUrl: applyUrl,
+            deadline: deadline,
+          );
+      ref.invalidate(applicationListProvider);
+      ref.invalidate(applicationStatsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Added to My Applications'),
+            backgroundColor: AppColors.eligible,
+            action: SnackBarAction(
+              label: 'VIEW',
+              textColor: Colors.white,
+              onPressed: () => context.push('/applications'),
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not add to applications. Try again.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -260,32 +310,57 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: ElevatedButton(
-                            onPressed: applyUrl != null
-                                ? () => launchUrl(
-                                      Uri.parse(applyUrl),
-                                      mode: LaunchMode.externalApplication,
-                                    )
-                                : () {},
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
-                              minimumSize: const Size(0, 32),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              textStyle: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            // Track → adds this institution+course to the
+                            // student's Applications (Kanban) board.
+                            OutlinedButton.icon(
+                              onPressed: () => _trackApplication(
+                                context, ref,
+                                institutionId: o.institution?.id,
+                                courseId: course.id,
+                                applyUrl: applyUrl,
+                                deadline: o.applicationDeadline,
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                              icon: const Icon(Icons.bookmark_add_outlined,
+                                  size: 16),
+                              label: const Text('Track'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                minimumSize: const Size(0, 34),
+                                tapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                textStyle: const TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.w600),
                               ),
                             ),
-                            child: const Text('Apply'),
-                          ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: applyUrl != null
+                                  ? () => launchUrl(
+                                        Uri.parse(applyUrl),
+                                        mode: LaunchMode.externalApplication,
+                                      )
+                                  : () {},
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                minimumSize: const Size(0, 34),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                textStyle: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text('Apply'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
