@@ -14,7 +14,6 @@ import '../bursaries/bursaries_screen.dart';
 import '../../widgets/cards/aps_score_card.dart';
 import '../../widgets/common/app_avatar.dart';
 import '../../widgets/common/notification_bell.dart';
-import '../../widgets/cards/feed_card.dart';
 import '../../widgets/cards/quick_action_card.dart';
 import '../../widgets/cards/section_header.dart';
 
@@ -44,7 +43,6 @@ class HomeScreen extends ConsumerWidget {
             ref.invalidate(courseRecommendationsProvider);
             ref.invalidate(bursaryRecommendationsProvider);
             ref.invalidate(bursaryListProvider('status=open'));
-            ref.invalidate(homeFeedProvider);
             ref.invalidate(unreadCountProvider);
           },
           child: CustomScrollView(
@@ -1417,71 +1415,3 @@ class _UnlockRecommendationsCta extends StatelessWidget {
   }
 }
 
-/// "For You" section — server-ranked list of actionable cards.
-/// Caps at 3 items on the home screen so the rest of the page (the
-/// real recommended courses + bursaries) is reachable without
-/// scrolling through a wall of nudges.
-class _ForYouFeed extends ConsumerWidget {
-  const _ForYouFeed();
-
-  static const _maxItems = 3;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(homeFeedProvider);
-    return async.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (allItems) {
-        if (allItems.isEmpty) return const SizedBox.shrink();
-        final items = allItems.take(_maxItems).toList();
-        final hasMore = allItems.length > _maxItems;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Text('For You',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text('${allItems.length}',
-                        style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primary)),
-                  ),
-                  const Spacer(),
-                  if (hasMore)
-                    TextButton(
-                      onPressed: () => context.push('/notifications'),
-                      style: TextButton.styleFrom(
-                        minimumSize: Size.zero,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('See all'),
-                    ),
-                ],
-              ),
-            ),
-            ...items.map((it) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: FeedCard(item: it),
-                )),
-            const SizedBox(height: 16),
-          ],
-        );
-      },
-    );
-  }
-}
