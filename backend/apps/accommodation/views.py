@@ -2,6 +2,7 @@ from django.db.models import Case, IntegerField, Value, When, F
 from rest_framework import generics, permissions
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from scancourse.pagination import LargeResultsSetPagination
 from .models import Accommodation
 from .serializers import AccommodationSerializer
 
@@ -9,6 +10,7 @@ from .serializers import AccommodationSerializer
 class AccommodationListView(generics.ListAPIView):
     serializer_class = AccommodationSerializer
     permission_classes = (permissions.AllowAny,)
+    pagination_class = LargeResultsSetPagination
     filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter)
     filterset_fields = ('province', 'city', 'room_type', 'nsfas_accredited', 'nearby_institution')
     search_fields = ('name', 'description', 'address', 'city')

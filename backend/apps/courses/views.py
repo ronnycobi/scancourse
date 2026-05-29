@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.conf import settings
+from scancourse.pagination import LargeResultsSetPagination
 from .models import Course, CourseOffering, CourseInteraction
 from .serializers import CourseListSerializer, CourseDetailSerializer
 from .matcher import match_courses, match_summary
@@ -48,6 +49,7 @@ def _dedupe_tvet(results: list[dict]) -> list[dict]:
 class CourseListView(generics.ListAPIView):
     serializer_class = CourseListSerializer
     permission_classes = (permissions.AllowAny,)
+    pagination_class = LargeResultsSetPagination
     filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter)
     filterset_fields = ('field', 'level')
     search_fields = ('name', 'description', 'career_opportunities')

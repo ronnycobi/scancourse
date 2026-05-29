@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from apps.ocr.models import APSResult
 from apps.users.models import SavedItem
 
+from scancourse.pagination import LargeResultsSetPagination
 from .models import Bursary
 from .matcher import evaluate_bursary, match_bursaries, summary, STATUS_ORDER
 from .serializers import BursarySerializer
@@ -37,6 +38,7 @@ class BursaryListView(generics.ListAPIView):
     """
     serializer_class = BursarySerializer
     permission_classes = (permissions.AllowAny,)
+    pagination_class = LargeResultsSetPagination
     filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter)
     filterset_fields = ('field', 'province', 'funding_type')
     search_fields = ('name', 'provider', 'description', 'eligibility')
