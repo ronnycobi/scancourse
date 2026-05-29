@@ -5,18 +5,86 @@ import '../../../core/theme/app_theme.dart';
 import '../../../providers/aps_provider.dart';
 import '../../widgets/common/loading_button.dart';
 
+/// The 11 official SA languages, used to build the Home Language and
+/// First Additional Language dropdowns (so the names always match the
+/// canonical forms the APS calculator normalises against).
+const _officialLanguages = [
+  'English',
+  'Afrikaans',
+  'isiZulu',
+  'isiXhosa',
+  'Sepedi',
+  'Setswana',
+  'Sesotho',
+  'Xitsonga',
+  'siSwati',
+  'Tshivenda',
+  'isiNdebele',
+];
+
+List<String> get _homeLanguageOptions =>
+    _officialLanguages.map((l) => '$l Home Language').toList();
+
+List<String> get _falOptions =>
+    _officialLanguages.map((l) => '$l First Additional Language').toList();
+
+/// The compulsory Mathematics slot — Pure Maths or Maths Literacy.
+const _mathOptions = ['Mathematics', 'Mathematical Literacy'];
+
+/// Approved NSC elective subjects (Maths / Maths Lit excluded — those are
+/// the compulsory Mathematics slot).
+const _electiveSubjects = [
+  'Accounting',
+  'Agricultural Sciences',
+  'Agricultural Management Practices',
+  'Agricultural Technology',
+  'Business Studies',
+  'Civil Technology',
+  'Computer Applications Technology',
+  'Consumer Studies',
+  'Dance Studies',
+  'Design',
+  'Dramatic Arts',
+  'Economics',
+  'Electrical Technology',
+  'Engineering Graphics and Design',
+  'Geography',
+  'History',
+  'Hospitality Studies',
+  'Information Technology',
+  'Life Sciences',
+  'Maritime Economics',
+  'Mechanical Technology',
+  'Music',
+  'Nautical Science',
+  'Physical Sciences',
+  'Religion Studies',
+  'Sport and Exercise Science',
+  'Technical Mathematics',
+  'Technical Sciences',
+  'Tourism',
+  'Visual Arts',
+];
+
 class _SubjectEntry {
-  final TextEditingController name;
+  // Selected subject name. For fixed rows (Maths / LO) this is set in code
+  // and not user-editable. For dropdown rows the user picks from [options].
+  String? name;
   final TextEditingController mark;
   final bool compulsory;
   final bool isLo;
+  final bool fixed; // Maths + LO — name shown read-only
+  final List<String>? options; // null → fixed/read-only
 
-  _SubjectEntry({String? defaultName, this.compulsory = false, this.isLo = false})
-      : name = TextEditingController(text: defaultName ?? ''),
-        mark = TextEditingController();
+  _SubjectEntry({
+    this.name,
+    this.compulsory = false,
+    this.isLo = false,
+    this.fixed = false,
+    this.options,
+  }) : mark = TextEditingController();
 
   void dispose() {
-    name.dispose();
     mark.dispose();
   }
 }
@@ -42,12 +110,13 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   void initState() {
     super.initState();
     _compulsory = [
-      _SubjectEntry(defaultName: 'Home Language', compulsory: true),
-      _SubjectEntry(defaultName: 'First Additional Language', compulsory: true),
-      _SubjectEntry(defaultName: 'Mathematics', compulsory: true),
-      _SubjectEntry(defaultName: 'Life Orientation', compulsory: true, isLo: true),
+      _SubjectEntry(compulsory: true, options: _homeLanguageOptions),
+      _SubjectEntry(compulsory: true, options: _falOptions),
+      _SubjectEntry(name: 'Mathematics', compulsory: true, options: _mathOptions),
+      _SubjectEntry(
+          name: 'Life Orientation', compulsory: true, isLo: true, fixed: true),
     ];
-    _electives = List.generate(3, (_) => _SubjectEntry());
+    _electives = List.generate(3, (_) => _SubjectEntry(options: _electiveSubjects));
   }
 
   @override
@@ -61,12 +130,12 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   void _toggleMathsLit(bool useLit) {
     setState(() {
       _useMathsLit = useLit;
-      _compulsory[2].name.text = useLit ? 'Mathematical Literacy' : 'Mathematics';
+      _compulsory[2].name = useLit ? 'Mathematical Literacy' : 'Mathematics';
     });
   }
 
   void _addExtra() {
-    setState(() => _extraElective = _SubjectEntry());
+    setState(() => _extraElective = _SubjectEntry(options: _electiveSubjects));
   }
 
   void _removeExtra() {
@@ -77,10 +146,15 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   Future<void> _calculate() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final all = [..._compulsory, ..._electives, if (_extraElective != null) _extraElective!];
+    final all = [
+      ..._compulsory,
+      ..._electives,
+      if (_extraElective != null) _extraElective!
+    ];
     final entries = all
-        .where((s) => s.name.text.isNotEmpty && s.mark.text.isNotEmpty)
-        .map((s) => {'name': s.name.text.trim(), 'mark': s.mark.text.trim()})
+        .where((s) =>
+            (s.name?.trim().isNotEmpty ?? false) && s.mark.text.isNotEmpty)
+        .map((s) => {'name': s.name!.trim(), 'mark': s.mark.text.trim()})
         .toList();
 
     setState(() => _isLoading = true);
@@ -150,7 +224,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                             ],
                             selected: {_useMathsLit},
                             onSelectionChanged: (s) => _toggleMathsLit(s.first),
-                            style: ButtonStyle(
+                            style: const ButtonStyle(
                               visualDensity: VisualDensity.compact,
                             ),
                           ),
@@ -158,13 +232,26 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                       ),
                     ),
 
-                    ..._compulsory.asMap().entries.map((entry) {
-                      final s = entry.value;
+                    ..._compulsory.map((s) {
+                      final isMaths = s.options == _mathOptions;
                       return _SubjectRow(
                         entry: s,
-                        index: entry.key,
                         compulsory: true,
+                        hint: s.options == _homeLanguageOptions
+                            ? 'Home Language'
+                            : s.options == _falOptions
+                                ? 'First Additional Language'
+                                : isMaths
+                                    ? 'Mathematics'
+                                    : 'Subject',
                         showLoNote: s.isLo,
+                        onChanged: () => setState(() {
+                          // Keep the Maths/Maths Lit toggle in sync when the
+                          // user changes the Mathematics dropdown directly.
+                          if (isMaths) {
+                            _useMathsLit = s.name == 'Mathematical Literacy';
+                          }
+                        }),
                       );
                     }),
 
@@ -177,17 +264,23 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                         style: Theme.of(context).textTheme.bodySmall),
                     const SizedBox(height: 12),
 
-                    ..._electives.asMap().entries.map((entry) => _SubjectRow(
-                          entry: entry.value,
-                          index: entry.key,
+                    ..._electives.map((e) => _SubjectRow(
+                          entry: e,
                           compulsory: false,
+                          hint: 'Select subject',
+                          onChanged: () => setState(() {}),
                         )),
 
                     // Optional 8th subject
                     if (_extraElective != null) ...[
                       Stack(
                         children: [
-                          _SubjectRow(entry: _extraElective!, index: 3, compulsory: false),
+                          _SubjectRow(
+                            entry: _extraElective!,
+                            compulsory: false,
+                            hint: 'Select subject',
+                            onChanged: () => setState(() {}),
+                          ),
                           Positioned(
                             top: 0,
                             right: 0,
@@ -277,56 +370,75 @@ class _SectionLabel extends StatelessWidget {
 
 class _SubjectRow extends StatelessWidget {
   final _SubjectEntry entry;
-  final int index;
   final bool compulsory;
+  final String hint;
   final bool showLoNote;
+  final VoidCallback onChanged;
 
   const _SubjectRow({
     required this.entry,
-    required this.index,
     required this.compulsory,
+    required this.hint,
+    required this.onChanged,
     this.showLoNote = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final nameField = entry.fixed
+        // Maths / Life Orientation — name is fixed, show read-only.
+        ? InputDecorator(
+            decoration: _dec(null),
+            child: Text(
+              entry.name ?? '',
+              style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+            ),
+          )
+        // Languages + electives — dropdown of canonical names.
+        : DropdownButtonFormField<String>(
+            value: entry.name,
+            isExpanded: true,
+            decoration: _dec(hint),
+            style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+            items: (entry.options ?? const [])
+                .map((o) => DropdownMenuItem(
+                      value: o,
+                      child: Text(o,
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ))
+                .toList(),
+            onChanged: (v) {
+              entry.name = v;
+              onChanged();
+            },
+            validator: (v) {
+              if (compulsory && (v == null || v.isEmpty)) return 'Required';
+              if (!compulsory &&
+                  entry.mark.text.isNotEmpty &&
+                  (v == null || v.isEmpty)) {
+                return 'Pick subject';
+              }
+              return null;
+            },
+          );
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                flex: 3,
-                child: TextFormField(
-                  controller: entry.name,
-                  textInputAction: TextInputAction.next,
-                  textCapitalization: TextCapitalization.words,
-                  style: const TextStyle(fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: compulsory ? 'e.g. English Home Language' : 'Subject name',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  validator: (v) {
-                    if (compulsory && !entry.isLo && (v == null || v.trim().isEmpty)) return 'Required';
-                    if (!compulsory && entry.mark.text.isNotEmpty && (v == null || v.trim().isEmpty)) return 'Enter name';
-                    return null;
-                  },
-                ),
-              ),
+              Expanded(flex: 3, child: nameField),
               const SizedBox(width: 10),
               Expanded(
                 child: TextFormField(
                   controller: entry.mark,
                   keyboardType: const TextInputType.numberWithOptions(decimal: false),
                   textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    hintText: '%',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
+                  decoration: _dec('%'),
+                  onChanged: (_) => onChanged(),
                   validator: (v) {
                     if (compulsory && !entry.isLo) {
                       if (v == null || v.trim().isEmpty) return 'Required';
@@ -353,4 +465,11 @@ class _SubjectRow extends StatelessWidget {
       ),
     );
   }
+
+  InputDecoration _dec(String? hint) => InputDecoration(
+        hintText: hint,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      );
 }
