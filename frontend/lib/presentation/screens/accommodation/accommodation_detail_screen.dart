@@ -3,8 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../data/services/api/api_client.dart';
 import '../../widgets/common/bookmark_button.dart';
+
+IconData _roomIcon(String? roomType) {
+  final t = (roomType ?? '').toLowerCase();
+  if (t.contains('single')) return Icons.single_bed_outlined;
+  if (t.contains('shar') || t.contains('double')) {
+    return Icons.bedroom_parent_outlined;
+  }
+  if (t.contains('bachelor') || t.contains('studio')) {
+    return Icons.meeting_room_outlined;
+  }
+  if (t.contains('bed')) return Icons.apartment_outlined;
+  return Icons.house_outlined;
+}
 
 final accommodationDetailProvider =
     FutureProvider.family<Map<String, dynamic>, int>((ref, id) async {
@@ -57,10 +71,64 @@ class AccommodationDetailScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text((a['name'] as String?) ?? 'Accommodation',
-                  style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              // NSFAS accreditation — prominent, right under the name.
+              // ── Header (matches the list card's look) ────────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryDark],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(_roomIcon(a['room_type'] as String?),
+                        color: Colors.white, size: 30),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text((a['name'] as String?) ?? 'Accommodation',
+                            style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 2),
+                        if (a['city'] != null)
+                          Text(
+                            '${a['city']}, ${AppConstants.provinces[a['province']] ?? a['province'] ?? ''}',
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textSecondary),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (a['price_per_month'] != null)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'R${(double.tryParse(a['price_per_month'].toString()) ?? 0).toStringAsFixed(0)}',
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.primary,
+                              height: 1),
+                        ),
+                        const Text('per month',
+                            style: TextStyle(
+                                fontSize: 10, color: AppColors.textHint)),
+                      ],
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              // NSFAS accreditation — prominent.
               if (a['nsfas_accredited'] == true)
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -87,17 +155,12 @@ class AccommodationDetailScreen extends ConsumerWidget {
                 ),
               if (a['address'] != null)
                 _row(Icons.location_on_outlined, a['address'].toString()),
-              if (a['city'] != null)
-                _row(Icons.location_city_outlined, a['city'].toString()),
               if (a['nearby_institution_name'] != null)
                 _row(Icons.school_outlined,
                     'Near ${a['nearby_institution_name']}'),
               if (a['room_type'] != null)
                 _row(Icons.bed_outlined,
                     a['room_type'].toString().replaceAll('_', ' ')),
-              if (a['price_per_month'] != null)
-                _row(Icons.attach_money,
-                    'R${a['price_per_month']} / month'),
               if (a['distance_km'] != null)
                 _row(Icons.directions_walk,
                     '${a['distance_km']} km from campus'),
