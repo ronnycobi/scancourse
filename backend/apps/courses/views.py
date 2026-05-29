@@ -126,6 +126,10 @@ class CourseMatchView(APIView):
         preferred_field = getattr(user, 'preferred_field', None) or None
         career = getattr(user, 'dream_career', None) or None
 
+        # Evaluate broadly (the matcher iterates every offering anyway) so
+        # the per-category caps below aren't starved. Without this, a global
+        # `limit` filled by eligible matches (which sort first) would leave
+        # the Subject-Gap / APS-Gap tabs empty even when such courses exist.
         results = match_courses(
             user_aps=user_aps,
             user_subjects=user_subjects,
@@ -138,14 +142,28 @@ class CourseMatchView(APIView):
             search=search or None,
             include_not_qualified=include_not_qualified,
             include_placeholders=include_placeholders,
-            limit=limit,
+            limit=max(limit, 5000),
         )
 
-        # Optional post-filter by single category (after sorting, so order is preserved)
-        if category and category in ('eligible', 'subject_gap', 'aps_gap', 'not_qualified'):
-            results = [r for r in results if r['match']['category'] == category]
-
+        # Summary reflects the true counts across everything matched.
         summary = match_summary(results)
+
+        if category and category in ('eligible', 'subject_gap', 'aps_gap', 'not_qualified'):
+            # Single-category request → just that bucket, capped to `limit`.
+            results = [
+                r for r in results if r['match']['category'] == category
+            ][:limit]
+        else:
+            # No category filter (the app fetches all tabs at once) → cap
+            # EACH category to `limit` so no tab starves the others.
+            counts: dict[str, int] = {}
+            capped = []
+            for r in results:
+                c = r['match']['category']
+                if counts.get(c, 0) < limit:
+                    capped.append(r)
+                    counts[c] = counts.get(c, 0) + 1
+            results = capped
 
         return Response({
             'aps': user_aps,
