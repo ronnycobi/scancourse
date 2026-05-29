@@ -212,7 +212,16 @@ class _NotificationTile extends ConsumerWidget {
     }
     final route = _deepLink();
     if (route != null && context.mounted) {
-      context.push(route);
+      // Tab destinations (/courses, /bursaries, /applications) live inside
+      // the bottom-nav ShellRoute — use go() so the shell branch resolves
+      // and renders its content. push() would show an empty shell body.
+      const shellRoots = ['/courses', '/bursaries', '/applications'];
+      final isShell = shellRoots.any((r) => route == r);
+      if (isShell) {
+        context.go(route);
+      } else {
+        context.push(route);
+      }
     }
   }
 

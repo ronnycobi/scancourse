@@ -10,8 +10,11 @@ final unreadCountProvider = FutureProvider<int>((ref) async {
   try {
     final resp = await ApiClient.instance.get('/notifications/unread-count/');
     final d = resp.data;
-    if (d is Map && d['count'] is int) return d['count'] as int;
-    if (d is Map && d['count'] is num) return (d['count'] as num).toInt();
+    if (d is Map) {
+      // Backend returns {'unread_count': n}; accept 'count' too for safety.
+      final v = d['unread_count'] ?? d['count'];
+      if (v is num) return v.toInt();
+    }
     return 0;
   } catch (_) {
     return 0;

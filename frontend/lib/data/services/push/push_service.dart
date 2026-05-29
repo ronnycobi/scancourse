@@ -19,6 +19,11 @@ class PushService {
       FlutterLocalNotificationsPlugin();
   bool _ready = false;
 
+  /// Fired whenever the unread inbox likely changed (a push arrived in the
+  /// foreground, or the app was opened from a notification). The UI sets
+  /// this to refresh the notification-bell badge live.
+  void Function()? onInboxChanged;
+
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'scancourse_default',
     'Scancourse',
@@ -46,6 +51,9 @@ class PushService {
     // Foreground messages don't show automatically — render them ourselves.
     FirebaseMessaging.onMessage.listen(_showLocal);
 
+    // Tapped a notification that opened the app → refresh the badge.
+    FirebaseMessaging.onMessageOpenedApp.listen((_) => onInboxChanged?.call());
+
     // Keep the backend in sync if Firebase rotates the token.
     FirebaseMessaging.instance.onTokenRefresh.listen(_sendToken);
   }
@@ -69,6 +77,8 @@ class PushService {
   }
 
   void _showLocal(RemoteMessage m) {
+    // A push arrived while the app is open → bump the bell badge.
+    onInboxChanged?.call();
     final n = m.notification;
     if (n == null) return;
     _local.show(
