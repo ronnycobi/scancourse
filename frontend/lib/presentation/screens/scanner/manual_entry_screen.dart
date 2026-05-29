@@ -64,7 +64,20 @@ const _electiveSubjects = [
   'Technical Sciences',
   'Tourism',
   'Visual Arts',
+  // IEB Advanced Programme subjects — taken in addition to the 7 NSC
+  // subjects. Not counted in standard APS (handled by the backend).
+  'Advanced Programme Mathematics',
+  'Advanced Programme English',
+  'Advanced Programme Afrikaans',
 ];
+
+/// IEB Advanced Programme subjects — shown with a "not counted in APS"
+/// note, like Life Orientation.
+const _advancedProgrammeSubjects = {
+  'Advanced Programme Mathematics',
+  'Advanced Programme English',
+  'Advanced Programme Afrikaans',
+};
 
 class _SubjectEntry {
   // Selected subject name. For fixed rows (Maths / LO) this is set in code
@@ -453,7 +466,8 @@ class _SubjectRow extends StatelessWidget {
               ),
             ],
           ),
-          if (showLoNote)
+          if (showLoNote ||
+              _advancedProgrammeSubjects.contains(entry.name))
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 2),
               child: Text(

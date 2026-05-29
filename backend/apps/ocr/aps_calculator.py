@@ -38,9 +38,25 @@ SUBJECT_ALIASES = {
     'cat': 'computer applications technology',
     'it': 'information technology',
     'ems': 'economic and management sciences',
+    # IEB Advanced Programme subjects — extra subjects sat in addition to
+    # the 7 NSC subjects. They do NOT count toward standard APS.
+    'ap maths': 'advanced programme mathematics',
+    'ap mathematics': 'advanced programme mathematics',
+    'advanced programme maths': 'advanced programme mathematics',
+    'ap english': 'advanced programme english',
+    'ap afrikaans': 'advanced programme afrikaans',
 }
 
 LIFE_ORIENTATION_SUBJECTS = {'life orientation', 'lo'}
+
+# IEB Advanced Programme subjects. Like Life Orientation, these are
+# excluded from the standard APS total (universities may award separate
+# bonus points, but they aren't part of the 6-subject APS).
+ADVANCED_PROGRAMME_SUBJECTS = {
+    'advanced programme mathematics',
+    'advanced programme english',
+    'advanced programme afrikaans',
+}
 
 
 def mark_to_aps(mark: int) -> int:
@@ -59,10 +75,18 @@ def is_life_orientation(name: str) -> bool:
     return normalize_subject(name) in LIFE_ORIENTATION_SUBJECTS
 
 
+def is_advanced_programme(name: str) -> bool:
+    return normalize_subject(name) in ADVANCED_PROGRAMME_SUBJECTS
+
+
 def calculate_aps(subjects: list[dict]) -> dict:
     """
     subjects: list of {'name': str, 'mark': int}
     Returns: {'total_aps': int, 'subjects': list with aps points, 'eligible_subjects_count': int}
+
+    Both Life Orientation and IEB Advanced Programme subjects are flagged
+    and excluded from the APS total (they aren't part of the standard
+    6-subject APS).
     """
     processed = []
     for subj in subjects:
@@ -71,6 +95,7 @@ def calculate_aps(subjects: list[dict]) -> dict:
         normalized = normalize_subject(name)
         aps_points = mark_to_aps(mark)
         is_lo = is_life_orientation(name)
+        is_ap = is_advanced_programme(name)
 
         processed.append({
             'name': name,
@@ -78,14 +103,15 @@ def calculate_aps(subjects: list[dict]) -> dict:
             'mark': mark,
             'aps_points': aps_points,
             'is_life_orientation': is_lo,
+            'is_advanced_programme': is_ap,
+            # Convenience flag: does this subject contribute to APS?
+            'counts_in_aps': not (is_lo or is_ap),
         })
 
-    # APS excludes Life Orientation from the total
-    total_aps = sum(
-        s['aps_points'] for s in processed if not s['is_life_orientation']
-    )
+    # APS excludes Life Orientation AND Advanced Programme subjects.
+    total_aps = sum(s['aps_points'] for s in processed if s['counts_in_aps'])
 
-    eligible_count = len([s for s in processed if not s['is_life_orientation']])
+    eligible_count = len([s for s in processed if s['counts_in_aps']])
 
     return {
         'total_aps': total_aps,
