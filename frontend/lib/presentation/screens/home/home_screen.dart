@@ -248,7 +248,7 @@ class _RecommendedCourses extends ConsumerWidget {
               final reason =
                   (rec['reason'] as String?) ?? 'matches_your_interests';
               return _RecommendationCard(
-                courseId: r['course_id'] as int,
+                courseId: (r['course_id'] as num?)?.toInt() ?? 0,
                 courseName: (r['course_name'] as String?) ?? '',
                 institution: (r['institution_name'] as String?) ??
                     (r['institution_short'] as String?) ??
