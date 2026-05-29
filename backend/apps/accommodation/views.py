@@ -28,18 +28,51 @@ class AccommodationListView(generics.ListAPIView):
 
         # Smart default ranking (when the client isn't asking for an explicit
         # ?ordering=): the places a student is most likely to want first —
-        #   1. in their home / preferred-study province (close by)
-        #   2. NSFAS-accredited (most students rely on it)
-        #   3. closest to campus
-        #   4. cheapest
+        #   1. NEXT TO an institution where they SAVED a course (they want to
+        #      study there, so accommodation there is the most relevant)
+        #   2. in their home / preferred-study province (close by)
+        #   3. NSFAS-accredited (most students rely on it)
+        #   4. closest to campus
+        #   5. cheapest
         # An explicit ?ordering= still wins (applied by OrderingFilter after).
         provinces: set[str] = set()
+        saved_institution_ids: set[int] = set()
         user = self.request.user
         if user.is_authenticated:
             if getattr(user, 'province', None):
                 provinces.add(user.province)
             provinces.update(getattr(user, 'preferred_study_provinces', None) or [])
 
+            # Institutions (and their provinces) the user has shown interest
+            # in by saving a course there.
+            from apps.users.models import SavedItem
+            from apps.courses.models import CourseOffering
+            saved_course_ids = list(
+                SavedItem.objects.filter(user=user, item_type='course')
+                .values_list('item_id', flat=True)
+            )
+            if saved_course_ids:
+                for inst_id, prov in (
+                    CourseOffering.objects
+                    .filter(course_id__in=saved_course_ids, is_active=True)
+                    .values_list('institution_id', 'institution__province')
+                    .distinct()
+                ):
+                    if inst_id:
+                        saved_institution_ids.add(inst_id)
+                    if prov:
+                        provinces.add(prov)
+
+        # 1. Next to a saved-course institution.
+        if saved_institution_ids:
+            qs = qs.annotate(_saved_inst=Case(
+                When(nearby_institution_id__in=saved_institution_ids, then=Value(0)),
+                default=Value(1), output_field=IntegerField(),
+            ))
+        else:
+            qs = qs.annotate(_saved_inst=Value(1, output_field=IntegerField()))
+
+        # 2. In a relevant province.
         if provinces:
             qs = qs.annotate(_near=Case(
                 When(province__in=provinces, then=Value(0)),
@@ -48,12 +81,14 @@ class AccommodationListView(generics.ListAPIView):
         else:
             qs = qs.annotate(_near=Value(1, output_field=IntegerField()))
 
+        # 3. NSFAS-accredited.
         qs = qs.annotate(_nsfas=Case(
             When(nsfas_accredited=True, then=Value(0)),
             default=Value(1), output_field=IntegerField(),
         ))
 
         return qs.order_by(
+            '_saved_inst',
             '_near',
             '_nsfas',
             F('distance_km').asc(nulls_last=True),
