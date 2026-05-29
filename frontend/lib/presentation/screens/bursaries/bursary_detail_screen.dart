@@ -14,6 +14,15 @@ final bursaryDetailProvider =
   return BursaryModel.fromJson(resp.data as Map<String, dynamic>);
 });
 
+/// True when the bursary's application deadline is in the past.
+bool _bursaryClosed(String? deadline) {
+  if (deadline == null || deadline.isEmpty) return false; // no deadline = open
+  final d = DateTime.tryParse(deadline);
+  if (d == null) return false;
+  final now = DateTime.now();
+  return d.isBefore(DateTime(now.year, now.month, now.day));
+}
+
 class BursaryDetailScreen extends ConsumerWidget {
   final int id;
   const BursaryDetailScreen({super.key, required this.id});
@@ -207,17 +216,31 @@ class BursaryDetailScreen extends ConsumerWidget {
 
               const SizedBox(height: 24),
 
-              // Apply CTA
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final uri = Uri.parse(b.applicationUrl);
-                  if (await canLaunchUrl(uri)) {
-                    launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Apply Now'),
-              ),
+              // Apply CTA — disabled once the deadline has passed.
+              Builder(builder: (_) {
+                final closed = _bursaryClosed(b.applicationDeadline);
+                return ElevatedButton.icon(
+                  onPressed: closed
+                      ? null
+                      : () async {
+                          final uri = Uri.parse(b.applicationUrl);
+                          if (await canLaunchUrl(uri)) {
+                            launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
+                          }
+                        },
+                  icon: Icon(closed ? Icons.event_busy : Icons.open_in_new),
+                  label: Text(closed ? 'Applications closed' : 'Apply Now'),
+                  style: closed
+                      ? ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.surface,
+                          foregroundColor: AppColors.textHint,
+                          disabledBackgroundColor: AppColors.surface,
+                          disabledForegroundColor: AppColors.textHint,
+                        )
+                      : null,
+                );
+              }),
             ],
           ),
         ),
