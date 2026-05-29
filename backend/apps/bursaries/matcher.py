@@ -41,12 +41,18 @@ def evaluate_bursary(
     user_aps: int | None = None,
     user_avg: float | None = None,
     user_field: str | None = None,
+    user_fields: list[str] | None = None,
     user_province: str | None = None,
     today: date | None = None,
 ) -> dict:
     """Return a match dict for a single bursary."""
     today = today or date.today()
     deadline = bursary.application_deadline
+
+    # Merge singular + plural preferred fields (onboarding is multi-select).
+    fields = set(user_fields or [])
+    if user_field:
+        fields.add(user_field)
 
     # 1. Closed?
     if deadline and deadline < today:
@@ -58,19 +64,20 @@ def evaluate_bursary(
 
     days_left = (deadline - today).days if deadline else None
 
-    # 2. Field constraint
-    if bursary.field != 'any' and user_field and user_field != bursary.field:
+    # 2. Field constraint — only a mismatch if NONE of the student's chosen
+    # fields match the bursary's restricted field.
+    if bursary.field != 'any' and fields and bursary.field not in fields:
         return {
             'status': 'field_mismatch',
             'reason': f'Bursary is restricted to {bursary.field}; '
-                      f'your preferred field is {user_field}',
+                      f'not in your preferred fields',
             'days_until_deadline': days_left,
         }
 
-    # 3. Province constraint (some provincial bursaries)
+    # 3. Province constraint (some provincial bursaries are residents-only)
     if bursary.province not in ('ALL', '') and user_province and user_province != bursary.province:
         return {
-            'status': 'field_mismatch',
+            'status': 'province_mismatch',
             'reason': f'Bursary is for residents of {bursary.province} only',
             'days_until_deadline': days_left,
         }
@@ -114,6 +121,7 @@ def match_bursaries(
     user_aps: int | None = None,
     user_avg: float | None = None,
     user_field: str | None = None,
+    user_fields: list[str] | None = None,
     user_province: str | None = None,
     today: date | None = None,
 ) -> list[dict]:
@@ -126,28 +134,33 @@ def match_bursaries(
             user_aps=user_aps,
             user_avg=user_avg,
             user_field=user_field,
+            user_fields=user_fields,
             user_province=user_province,
             today=today,
         )
         out.append({'bursary': b, 'match': match})
 
-    status_order = {
-        'qualified': 0,
-        'check_details': 1,
-        'grade_gap': 2,
-        'field_mismatch': 3,
-        'closed': 4,
-    }
     out.sort(key=lambda r: (
-        status_order.get(r['match']['status'], 99),
+        STATUS_ORDER.get(r['match']['status'], 99),
         r['bursary'].application_deadline or date.max,
     ))
     return out
 
 
+# Ordering of match statuses — best/most-actionable first.
+STATUS_ORDER = {
+    'qualified': 0,
+    'check_details': 1,
+    'grade_gap': 2,
+    'field_mismatch': 3,
+    'province_mismatch': 4,
+    'closed': 5,
+}
+
+
 def summary(matched: list[dict]) -> dict:
     counts = {'qualified': 0, 'check_details': 0, 'grade_gap': 0,
-              'field_mismatch': 0, 'closed': 0}
+              'field_mismatch': 0, 'province_mismatch': 0, 'closed': 0}
     for r in matched:
         counts[r['match']['status']] = counts.get(r['match']['status'], 0) + 1
     return counts

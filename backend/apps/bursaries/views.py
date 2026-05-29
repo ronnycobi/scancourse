@@ -12,8 +12,18 @@ from apps.ocr.models import APSResult
 from apps.users.models import SavedItem
 
 from .models import Bursary
-from .matcher import evaluate_bursary, match_bursaries, summary
+from .matcher import evaluate_bursary, match_bursaries, summary, STATUS_ORDER
 from .serializers import BursarySerializer
+
+
+def _user_fields(user) -> list[str]:
+    """All of the user's preferred fields (multi-select), with the legacy
+    singular field merged in for backward compatibility."""
+    fields = list(getattr(user, 'preferred_fields', None) or [])
+    single = getattr(user, 'preferred_field', None)
+    if single and single not in fields:
+        fields.append(single)
+    return fields
 
 
 class BursaryListView(generics.ListAPIView):
@@ -70,28 +80,29 @@ class BursaryListView(generics.ListAPIView):
         user_aps = merged['total_aps']
         user_subjects = merged['subjects']
         user_avg = _avg_from_aps_subjects(user_subjects)
-        user_field = getattr(request.user, 'preferred_field', None) or None
+        user_fields = _user_fields(request.user)
         user_province = getattr(request.user, 'province', None) or None
 
         results = response.data.get('results') or response.data
         if isinstance(results, list):
+            # One query for all bursaries on this page (avoid N+1).
+            ids = [item['id'] for item in results if 'id' in item]
+            by_id = {b.id: b for b in Bursary.objects.filter(pk__in=ids)}
             for item in results:
-                bursary = Bursary.objects.filter(pk=item['id']).first()
+                bursary = by_id.get(item.get('id'))
                 if not bursary:
                     continue
                 item['match'] = evaluate_bursary(
                     bursary,
                     user_aps=user_aps,
                     user_avg=user_avg,
-                    user_field=user_field,
+                    user_fields=user_fields,
                     user_province=user_province,
                 )
             # Sort qualified-first within the current page, preserving
             # deadline order within each status bucket.
-            status_rank = {'qualified': 0, 'check_details': 1,
-                           'grade_gap': 2, 'field_mismatch': 3, 'closed': 4}
             results.sort(key=lambda x: (
-                status_rank.get((x.get('match') or {}).get('status'), 5),
+                STATUS_ORDER.get((x.get('match') or {}).get('status'), 9),
                 x.get('application_deadline') or '9999-12-31',
             ))
         return response
@@ -114,7 +125,7 @@ class BursaryDetailView(generics.RetrieveAPIView):
                     bursary,
                     user_aps=merged['total_aps'],
                     user_avg=_avg_from_aps_subjects(merged['subjects']),
-                    user_field=getattr(request.user, 'preferred_field', None) or None,
+                    user_fields=_user_fields(request.user),
                     user_province=getattr(request.user, 'province', None) or None,
                 )
         return response
@@ -157,7 +168,7 @@ class BursaryStatsView(APIView):
                     ),
                     user_aps=merged['total_aps'],
                     user_avg=_avg_from_aps_subjects(merged['subjects']),
-                    user_field=getattr(request.user, 'preferred_field', None) or None,
+                    user_fields=_user_fields(request.user),
                     user_province=getattr(request.user, 'province', None) or None,
                 )
                 out['match_summary'] = summary(matched)
@@ -188,7 +199,7 @@ class BursaryRecommendView(APIView):
         merged = best_aps_for_user(user)
         user_avg = _avg_from_aps_subjects(merged['subjects']) if merged['report_count'] else None
         user_aps = merged['total_aps'] if merged['report_count'] else None
-        user_field = getattr(user, 'preferred_field', None) or None
+        user_fields = _user_fields(user)
         user_province = getattr(user, 'province', None) or None
 
         bursaries = list(
@@ -197,7 +208,7 @@ class BursaryRecommendView(APIView):
         )
         matched = match_bursaries(
             bursaries, user_aps=user_aps, user_avg=user_avg,
-            user_field=user_field, user_province=user_province,
+            user_fields=user_fields, user_province=user_province,
         )
 
         # Content score: qualified > check_details > grade_gap > field_mismatch
@@ -237,7 +248,7 @@ class BursaryRecommendView(APIView):
                 continue
             base = content_weight.get(r['match']['status'], 0)
             cf = cf_scores.get(b.id, 0.0)
-            field_bonus = 15 if (user_field and b.field == user_field) else 0
+            field_bonus = 15 if (user_fields and b.field in user_fields) else 0
             province_bonus = 10 if (user_province and b.province == user_province) else 0
             # Penalise distant deadlines slightly so soon-closing ones surface.
             days = r['match'].get('days_until_deadline') or 365

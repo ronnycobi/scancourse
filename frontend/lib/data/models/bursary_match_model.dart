@@ -34,6 +34,8 @@ class BursaryMatch {
         return 'Grade Gap';
       case 'field_mismatch':
         return 'Different Field';
+      case 'province_mismatch':
+        return 'Other Province';
       case 'closed':
         return 'Closed';
       default:

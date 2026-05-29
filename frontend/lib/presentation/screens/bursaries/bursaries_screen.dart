@@ -472,6 +472,7 @@ class _BursaryCard extends StatelessWidget {
       case 'grade_gap':
         return AppColors.apsGap;
       case 'field_mismatch':
+      case 'province_mismatch':
         return AppColors.textHint;
       case 'closed':
         return AppColors.error;
