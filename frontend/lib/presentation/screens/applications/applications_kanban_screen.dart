@@ -904,7 +904,9 @@ class _EmptyView extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             ElevatedButton.icon(
-              onPressed: () => context.push('/courses'),
+              // /courses is a bottom-nav ShellRoute branch — use go() so it
+              // resolves the shell and shows content (push shows a blank shell).
+              onPressed: () => context.go('/courses'),
               icon: const Icon(Icons.search, size: 16),
               label: const Text('Browse courses'),
             ),

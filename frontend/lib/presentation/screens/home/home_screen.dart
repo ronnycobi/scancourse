@@ -1191,7 +1191,9 @@ class _ApsHero extends ConsumerWidget {
                 _HeroButton(
                   icon: Icons.school_outlined,
                   label: 'Courses',
-                  onTap: () => context.push('/courses'),
+                  // /courses is a bottom-nav ShellRoute branch — go(), not
+                  // push(), or it renders a blank shell.
+                  onTap: () => context.go('/courses'),
                 ),
                 _HeroButton(
                   icon: Icons.assignment_outlined,

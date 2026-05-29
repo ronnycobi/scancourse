@@ -78,7 +78,8 @@ class ApplicationsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: () => context.push('/courses'),
+                          // /courses is a ShellRoute branch — go(), not push().
+                          onPressed: () => context.go('/courses'),
                           child: const Text('Browse Courses'),
                         ),
                       ],
