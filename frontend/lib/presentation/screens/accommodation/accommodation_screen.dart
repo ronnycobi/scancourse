@@ -16,6 +16,8 @@ class AccommodationItem {
   final bool nsfasAccredited;
   final double? distanceKm;
   final String? contactPhone;
+  final String? nearbyInstitution;
+  final List<String> features;
   final List images;
 
   AccommodationItem.fromJson(Map<String, dynamic> j)
@@ -28,6 +30,10 @@ class AccommodationItem {
         nsfasAccredited = j['nsfas_accredited'] ?? false,
         distanceKm = j['distance_km'] != null ? double.tryParse(j['distance_km'].toString()) : null,
         contactPhone = j['contact_phone'],
+        nearbyInstitution = j['nearby_institution_name'] as String?,
+        features = ((j['features'] as List?) ?? [])
+            .map((e) => e.toString())
+            .toList(),
         images = j['images'] ?? [];
 }
 
@@ -171,94 +177,204 @@ class _AccommodationCard extends StatelessWidget {
 
   const _AccommodationCard({required this.item, required this.onTap});
 
+  IconData get _roomIcon {
+    final t = item.roomType.toLowerCase();
+    if (t.contains('single')) return Icons.single_bed_outlined;
+    if (t.contains('shar') || t.contains('double')) return Icons.bedroom_parent_outlined;
+    if (t.contains('bachelor') || t.contains('studio')) return Icons.meeting_room_outlined;
+    if (t.contains('res') || t.contains('dorm')) return Icons.apartment_outlined;
+    return Icons.house_outlined;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
+    final roomLabel = item.roomType.replaceAll('_', ' ').toUpperCase();
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
-              child: const Center(
-                child: Icon(Icons.apartment_outlined, size: 48, color: AppColors.textHint),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
+            ],
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: Text(item.name, style: Theme.of(context).textTheme.titleMedium)),
-                      Text(
-                        'R${item.pricePerMonth.toStringAsFixed(0)}/mo',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.primary),
+                  // Image-free gradient tile keyed to room type.
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryDark],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text('${item.city}, ${AppConstants.provinces[item.province] ?? item.province}',
-                      style: Theme.of(context).textTheme.bodySmall),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      if (item.nsfasAccredited)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.secondaryLight,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text('NSFAS ✓',
-                              style: TextStyle(color: AppColors.secondary, fontSize: 11, fontWeight: FontWeight.w600)),
-                        ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryLight,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(item.roomType.replaceAll('_', ' ').toUpperCase(),
-                            style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w600)),
-                      ),
-                      if (item.distanceKm != null) ...[
-                        const Spacer(),
-                        const Icon(Icons.directions_walk, size: 13, color: AppColors.textHint),
-                        const SizedBox(width: 4),
-                        Text('${item.distanceKm}km', style: Theme.of(context).textTheme.bodySmall),
-                      ],
-                    ],
-                  ),
-                  if (item.contactPhone?.isNotEmpty == true) ...[
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: () => launchUrl(Uri.parse('tel:${item.contactPhone}')),
-                      icon: const Icon(Icons.phone_outlined, size: 16),
-                      label: const Text('Call'),
-                      style: OutlinedButton.styleFrom(minimumSize: const Size(80, 34), textStyle: const TextStyle(fontSize: 13)),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                  ],
+                    child: Icon(_roomIcon, color: Colors.white, size: 30),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.name,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(Icons.place_outlined,
+                                size: 13, color: AppColors.textSecondary),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                '${item.city}, ${AppConstants.provinces[item.province] ?? item.province}',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (item.nearbyInstitution != null) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Icon(Icons.school_outlined,
+                                  size: 13, color: AppColors.primary),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  item.distanceKm != null
+                                      ? '${item.distanceKm!.toStringAsFixed(1)} km from ${item.nearbyInstitution}'
+                                      : 'Near ${item.nearbyInstitution}',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Price block
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'R${item.pricePerMonth.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                          height: 1,
+                        ),
+                      ),
+                      const Text('per month',
+                          style: TextStyle(
+                              fontSize: 10, color: AppColors.textHint)),
+                    ],
+                  ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              // Chips: NSFAS, room type, a couple of features.
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (item.nsfasAccredited)
+                    _chip('NSFAS ✓', AppColors.eligible,
+                        AppColors.eligible.withOpacity(0.12)),
+                  _chip(roomLabel, AppColors.primary, AppColors.primaryLight),
+                  ...item.features.take(2).map(
+                        (f) => _chip(f, AppColors.textSecondary,
+                            AppColors.surface,
+                            bordered: true),
+                      ),
+                  if (item.distanceKm != null)
+                    _chip('${item.distanceKm!.toStringAsFixed(1)} km',
+                        AppColors.textSecondary, AppColors.surface,
+                        icon: Icons.directions_walk, bordered: true),
+                ],
+              ),
+              if (item.contactPhone?.isNotEmpty == true) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    onPressed: () =>
+                        launchUrl(Uri.parse('tel:${item.contactPhone}')),
+                    icon: const Icon(Icons.phone_outlined, size: 16),
+                    label: const Text('Call'),
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(80, 34),
+                        textStyle: const TextStyle(fontSize: 13)),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _chip(String label, Color fg, Color bg,
+      {IconData? icon, bool bordered = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: bordered ? Border.all(color: AppColors.border) : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: fg),
+            const SizedBox(width: 3),
+          ],
+          Text(label,
+              style: TextStyle(
+                  color: fg, fontSize: 11, fontWeight: FontWeight.w700)),
+        ],
       ),
     );
   }
