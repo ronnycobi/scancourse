@@ -12,6 +12,8 @@ ApsSubject _$ApsSubjectFromJson(Map<String, dynamic> json) => ApsSubject(
       mark: (json['mark'] as num).toInt(),
       apsPoints: (json['aps_points'] as num).toInt(),
       isLifeOrientation: json['is_life_orientation'] as bool? ?? false,
+      isAdvancedProgramme: json['is_advanced_programme'] as bool? ?? false,
+      countedInAps: json['counted_in_aps'] as bool? ?? true,
     );
 
 Map<String, dynamic> _$ApsSubjectToJson(ApsSubject instance) =>
@@ -21,6 +23,8 @@ Map<String, dynamic> _$ApsSubjectToJson(ApsSubject instance) =>
       'mark': instance.mark,
       'aps_points': instance.apsPoints,
       'is_life_orientation': instance.isLifeOrientation,
+      'is_advanced_programme': instance.isAdvancedProgramme,
+      'counted_in_aps': instance.countedInAps,
     };
 
 ApsResult _$ApsResultFromJson(Map<String, dynamic> json) => ApsResult(

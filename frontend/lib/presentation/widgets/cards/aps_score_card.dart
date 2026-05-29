@@ -31,7 +31,15 @@ class _ApsScoreCardState extends State<ApsScoreCard> {
 
   @override
   Widget build(BuildContext context) {
-    final subjects = widget.subjects;
+    // Show the subjects that count toward APS first (highest points), then
+    // the excluded ones (LO / AP / not-in-top-6) — so the preview always
+    // surfaces the 6 that actually made the score.
+    final subjects = [...widget.subjects]..sort((a, b) {
+        if (a.countedInAps != b.countedInAps) {
+          return a.countedInAps ? -1 : 1;
+        }
+        return b.apsPoints.compareTo(a.apsPoints);
+      });
     final preview = subjects.take(4).toList();
     final hasMore = subjects.length > 4;
     final displayed = _expanded ? subjects : preview;
@@ -102,41 +110,70 @@ class _ApsScoreCardState extends State<ApsScoreCard> {
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 12),
-            ...displayed.map((s) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      s.name,
+            ...displayed.map((s) {
+              final excluded = s.excludedReason != null;
+              // Compact pill tag for excluded subjects.
+              final tag = s.isLifeOrientation
+                  ? 'LO'
+                  : s.isAdvancedProgramme
+                      ? 'AP'
+                      : !s.countedInAps
+                          ? 'Extra'
+                          : '${s.apsPoints} pts';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s.name,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: excluded
+                                      ? AppColors.textHint
+                                      : AppColors.textPrimary,
+                                ),
+                          ),
+                          if (excluded)
+                            Text(
+                              s.excludedReason!,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textHint,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${s.mark}%',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: s.isLifeOrientation ? AppColors.textHint : AppColors.textPrimary,
+                            color: excluded ? AppColors.textHint : null,
+                          ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: excluded ? AppColors.surface : AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        tag,
+                        style: TextStyle(
+                          color: excluded ? AppColors.textHint : AppColors.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                  Text(
-                    '${s.mark}%',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: s.isLifeOrientation ? AppColors.surface : AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      s.isLifeOrientation ? 'LO' : '${s.apsPoints} pts',
-                      style: TextStyle(
-                        color: s.isLifeOrientation ? AppColors.textHint : AppColors.primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )),
+                  ],
+                ),
+              );
+            }),
             if (hasMore)
               GestureDetector(
                 onTap: () => setState(() => _expanded = !_expanded),

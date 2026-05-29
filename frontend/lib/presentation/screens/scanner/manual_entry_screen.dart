@@ -115,15 +115,18 @@ class ManualEntryScreen extends ConsumerStatefulWidget {
 class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
-  bool _useMathsLit = false;
   // Curriculum board — defaults to DBE (public schools); IEB learners
   // switch this to reveal the Advanced Programme subjects.
   bool _isIeb = false;
 
-  // 4 compulsory + 3 electives = 7 fixed; 8th is optional
+  // NSC minimum is 7 subjects: 4 compulsory + 3 electives. Learners
+  // (especially IEB) can take more, so electives grow up to _maxElectives
+  // (→ 11 subjects total) and shrink back to _minElectives.
+  static const int _minElectives = 3;
+  static const int _maxElectives = 7;
+
   late final List<_SubjectEntry> _compulsory;
   late final List<_SubjectEntry> _electives;
-  _SubjectEntry? _extraElective;
 
   List<String> get _electiveOptions => electiveOptionsFor(isIeb: _isIeb);
 
@@ -137,14 +140,15 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       _SubjectEntry(
           name: 'Life Orientation', compulsory: true, isLo: true, fixed: true),
     ];
-    _electives = List.generate(3, (_) => _SubjectEntry(options: _electiveOptions));
+    _electives =
+        List.generate(_minElectives, (_) => _SubjectEntry(options: _electiveOptions));
   }
 
   void _setBoard(bool ieb) {
     setState(() {
       _isIeb = ieb;
       final opts = _electiveOptions;
-      for (final e in [..._electives, if (_extraElective != null) _extraElective!]) {
+      for (final e in _electives) {
         e.options = opts;
         // Switching back to DBE: clear any Advanced Programme picks that
         // are no longer valid options.
@@ -159,34 +163,24 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   void dispose() {
     for (final s in _compulsory) s.dispose();
     for (final s in _electives) s.dispose();
-    _extraElective?.dispose();
     super.dispose();
   }
 
-  void _toggleMathsLit(bool useLit) {
-    setState(() {
-      _useMathsLit = useLit;
-      _compulsory[2].name = useLit ? 'Mathematical Literacy' : 'Mathematics';
-    });
+  void _addElective() {
+    if (_electives.length >= _maxElectives) return;
+    setState(() => _electives.add(_SubjectEntry(options: _electiveOptions)));
   }
 
-  void _addExtra() {
-    setState(() => _extraElective = _SubjectEntry(options: _electiveOptions));
-  }
-
-  void _removeExtra() {
-    _extraElective?.dispose();
-    setState(() => _extraElective = null);
+  void _removeElective(_SubjectEntry e) {
+    if (_electives.length <= _minElectives) return;
+    e.dispose();
+    setState(() => _electives.remove(e));
   }
 
   Future<void> _calculate() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final all = [
-      ..._compulsory,
-      ..._electives,
-      if (_extraElective != null) _extraElective!
-    ];
+    final all = [..._compulsory, ..._electives];
     final entries = all
         .where((s) =>
             (s.name?.trim().isNotEmpty ?? false) && s.mark.text.isNotEmpty)
@@ -290,105 +284,68 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                     _SectionLabel(label: 'Compulsory Subjects', count: 4),
                     const SizedBox(height: 12),
 
-                    // Maths vs Maths Lit toggle
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calculate_outlined, size: 18, color: AppColors.primary),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text('Mathematics type',
-                                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w500, fontSize: 13)),
-                          ),
-                          SegmentedButton<bool>(
-                            segments: const [
-                              ButtonSegment(value: false, label: Text('Maths', style: TextStyle(fontSize: 12))),
-                              ButtonSegment(value: true, label: Text('Maths Lit', style: TextStyle(fontSize: 12))),
-                            ],
-                            selected: {_useMathsLit},
-                            onSelectionChanged: (s) => _toggleMathsLit(s.first),
-                            style: const ButtonStyle(
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    ..._compulsory.map((s) {
-                      final isMaths = s.options == _mathOptions;
-                      return _SubjectRow(
-                        entry: s,
-                        compulsory: true,
-                        hint: s.options == _homeLanguageOptions
-                            ? 'Home Language'
-                            : s.options == _falOptions
-                                ? 'First Additional Language'
-                                : isMaths
-                                    ? 'Mathematics'
-                                    : 'Subject',
-                        showLoNote: s.isLo,
-                        onChanged: () => setState(() {
-                          // Keep the Maths/Maths Lit toggle in sync when the
-                          // user changes the Mathematics dropdown directly.
-                          if (isMaths) {
-                            _useMathsLit = s.name == 'Mathematical Literacy';
-                          }
-                        }),
-                      );
-                    }),
+                    ..._compulsory.map((s) => _SubjectRow(
+                          entry: s,
+                          compulsory: true,
+                          hint: s.options == _homeLanguageOptions
+                              ? 'Home Language'
+                              : s.options == _falOptions
+                                  ? 'First Additional Language'
+                                  : s.options == _mathOptions
+                                      ? 'Mathematics'
+                                      : 'Subject',
+                          showLoNote: s.isLo,
+                          onChanged: () => setState(() {}),
+                        )),
 
                     const SizedBox(height: 20),
 
-                    // --- Elective subjects ---
-                    _SectionLabel(label: 'Elective Subjects', count: _extraElective != null ? 4 : 3),
+                    // --- Elective subjects (growable: 3 to 7) ---
+                    _SectionLabel(
+                        label: 'Elective Subjects', count: _electives.length),
                     const SizedBox(height: 4),
                     Text('Choose from approved NSC elective subjects',
                         style: Theme.of(context).textTheme.bodySmall),
                     const SizedBox(height: 12),
 
-                    ..._electives.map((e) => _SubjectRow(
-                          entry: e,
-                          compulsory: false,
-                          hint: 'Select subject',
-                          onChanged: () => setState(() {}),
-                        )),
-
-                    // Optional 8th subject
-                    if (_extraElective != null) ...[
-                      Stack(
+                    ..._electives.map((e) {
+                      final canRemove = _electives.length > _minElectives;
+                      final row = _SubjectRow(
+                        entry: e,
+                        compulsory: false,
+                        hint: 'Select subject',
+                        onChanged: () => setState(() {}),
+                      );
+                      if (!canRemove) return row;
+                      return Stack(
                         children: [
-                          _SubjectRow(
-                            entry: _extraElective!,
-                            compulsory: false,
-                            hint: 'Select subject',
-                            onChanged: () => setState(() {}),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 36),
+                            child: row,
                           ),
                           Positioned(
                             top: 0,
                             right: 0,
                             child: IconButton(
-                              icon: const Icon(Icons.remove_circle, color: AppColors.error, size: 22),
-                              onPressed: _removeExtra,
-                              tooltip: 'Remove optional subject',
+                              icon: const Icon(Icons.remove_circle,
+                                  color: AppColors.error, size: 22),
+                              onPressed: () => _removeElective(e),
+                              tooltip: 'Remove subject',
                             ),
                           ),
                         ],
-                      ),
-                    ] else ...[
+                      );
+                    }),
+
+                    // Add another subject (up to 11 subjects total)
+                    if (_electives.length < _maxElectives)
                       TextButton.icon(
-                        onPressed: _addExtra,
+                        onPressed: _addElective,
                         icon: const Icon(Icons.add_circle_outline, size: 18),
-                        label: const Text('Add optional 8th subject'),
-                        style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+                        label: const Text('Add another subject'),
+                        style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary),
                       ),
-                    ],
 
                     const SizedBox(height: 16),
                     Container(

@@ -12,6 +12,12 @@ class ApsSubject {
   final int apsPoints;
   @JsonKey(name: 'is_life_orientation')
   final bool isLifeOrientation;
+  @JsonKey(name: 'is_advanced_programme')
+  final bool isAdvancedProgramme;
+  // Whether this subject actually contributed to the APS total (i.e. made
+  // the best 6). Defaults to true for older results that predate the flag.
+  @JsonKey(name: 'counted_in_aps')
+  final bool countedInAps;
 
   const ApsSubject({
     required this.name,
@@ -19,7 +25,17 @@ class ApsSubject {
     required this.mark,
     required this.apsPoints,
     this.isLifeOrientation = false,
+    this.isAdvancedProgramme = false,
+    this.countedInAps = true,
   });
+
+  /// Short reason a subject is excluded from APS, or null if it counts.
+  String? get excludedReason {
+    if (isLifeOrientation) return 'LO — not in APS';
+    if (isAdvancedProgramme) return 'AP — not in APS';
+    if (!countedInAps) return 'Not in top 6';
+    return null;
+  }
 
   factory ApsSubject.fromJson(Map<String, dynamic> json) => _$ApsSubjectFromJson(json);
   Map<String, dynamic> toJson() => _$ApsSubjectToJson(this);
