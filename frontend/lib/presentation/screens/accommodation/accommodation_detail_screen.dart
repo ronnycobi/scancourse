@@ -7,6 +7,19 @@ import '../../../core/constants/app_constants.dart';
 import '../../../data/services/api/api_client.dart';
 import '../../widgets/common/bookmark_button.dart';
 
+/// Heuristic: an on-campus residence (vs private/off-campus). We have no
+/// explicit flag, so infer from the name ("...Residence") or a tiny
+/// distance to the institution.
+bool _isOnCampusRes(Map<String, dynamic> a) {
+  final name = (a['name'] as String? ?? '').toLowerCase();
+  if (name.contains('residence') || name.contains(' res ') ||
+      name.endsWith(' res')) {
+    return true;
+  }
+  final d = double.tryParse((a['distance_km'] ?? '').toString());
+  return a['nearby_institution'] != null && d != null && d <= 0.5;
+}
+
 IconData _roomIcon(String? roomType) {
   final t = (roomType ?? '').toLowerCase();
   if (t.contains('single')) return Icons.single_bed_outlined;
@@ -127,7 +140,40 @@ class AccommodationDetailScreen extends ConsumerWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
+              // On-campus vs private residence tag.
+              Builder(builder: (_) {
+                final onCampus = _isOnCampusRes(a);
+                final c = onCampus ? AppColors.primary : AppColors.textSecondary;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: c.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: c.withOpacity(0.35)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(onCampus ? Icons.apartment : Icons.house_outlined,
+                          size: 15, color: c),
+                      const SizedBox(width: 6),
+                      Text(
+                        onCampus ? 'On-campus residence' : 'Private accommodation',
+                        style: TextStyle(
+                            color: c, fontWeight: FontWeight.w700, fontSize: 12.5),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              // Campus the residence belongs to / is nearest to.
+              if (a['nearby_institution_name'] != null)
+                _row(Icons.school_outlined,
+                    'Campus: ${a['nearby_institution_name']}'),
+              const SizedBox(height: 4),
               // NSFAS accreditation — prominent.
               if (a['nsfas_accredited'] == true)
                 Container(
@@ -155,9 +201,6 @@ class AccommodationDetailScreen extends ConsumerWidget {
                 ),
               if (a['address'] != null)
                 _row(Icons.location_on_outlined, a['address'].toString()),
-              if (a['nearby_institution_name'] != null)
-                _row(Icons.school_outlined,
-                    'Near ${a['nearby_institution_name']}'),
               if (a['room_type'] != null)
                 _row(Icons.bed_outlined,
                     a['room_type'].toString().replaceAll('_', ' ')),

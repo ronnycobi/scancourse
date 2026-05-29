@@ -316,13 +316,23 @@ class _KanbanColumn {
 // ── Saved-courses → "track your progress" prompt ──────────────────────
 
 /// Surfaces courses the student has saved but isn't tracking yet, nudging
-/// them to start an application and report progress. Hides itself when
-/// there's nothing to suggest.
-class _SavedCoursesPrompt extends ConsumerWidget {
+/// them to start an application and report progress. Vertical list — shows
+/// 5 with a "view more" expander; tap a row to go track it. Hides itself
+/// when there's nothing to suggest.
+class _SavedCoursesPrompt extends ConsumerStatefulWidget {
   const _SavedCoursesPrompt();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SavedCoursesPrompt> createState() =>
+      _SavedCoursesPromptState();
+}
+
+class _SavedCoursesPromptState extends ConsumerState<_SavedCoursesPrompt> {
+  static const _collapsedCount = 5;
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     final saved = ref.watch(savedItemsProvider).valueOrNull ?? const [];
     final apps = ref.watch(applicationListProvider).valueOrNull ?? const [];
     final trackedCourseIds =
@@ -333,9 +343,14 @@ class _SavedCoursesPrompt extends ConsumerWidget {
         .toList();
     if (suggestions.isEmpty) return const SizedBox.shrink();
 
+    final shown = _expanded
+        ? suggestions
+        : suggestions.take(_collapsedCount).toList();
+    final hiddenCount = suggestions.length - shown.length;
+
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -344,7 +359,7 @@ class _SavedCoursesPrompt extends ConsumerWidget {
               const Icon(Icons.bookmark_added_outlined,
                   size: 16, color: AppColors.primary),
               const SizedBox(width: 6),
-              Expanded(
+              const Expanded(
                 child: Text(
                   'Track your saved courses',
                   style: TextStyle(
@@ -353,73 +368,124 @@ class _SavedCoursesPrompt extends ConsumerWidget {
                       color: AppColors.textPrimary),
                 ),
               ),
+              Text('${suggestions.length}',
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHint)),
             ],
           ),
           const SizedBox(height: 2),
           const Text(
-            'How are these going? Add one to track your progress.',
+            'Tap one to start tracking and update your progress.',
             style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 64,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: suggestions.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final s = suggestions[i];
-                return InkWell(
-                  onTap: () => context.push('/courses/${s.itemId}'),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 200,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: AppColors.primary.withOpacity(0.25)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                s.itemName ?? 'Saved course',
-                                style: const TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (s.itemSubtitle != null)
-                                Text(
-                                  s.itemSubtitle!,
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                            ],
+          // Bounded + scrollable so an expanded list never overflows the
+          // fixed header area above the Kanban columns.
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280),
+            child: SingleChildScrollView(
+              child: Column(
+                children: shown
+                    .map((s) => Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _SavedRow(
+                            title: s.itemName ?? 'Saved course',
+                            subtitle: s.itemSubtitle,
+                            onTrack: () =>
+                                context.push('/courses/${s.itemId}'),
                           ),
-                        ),
-                        const Icon(Icons.add_circle_outline,
-                            size: 20, color: AppColors.primary),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                        ))
+                    .toList(),
+              ),
             ),
           ),
+          if (hiddenCount > 0 || _expanded)
+            Align(
+              alignment: Alignment.center,
+              child: TextButton(
+                onPressed: () => setState(() => _expanded = !_expanded),
+                style: TextButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  _expanded ? 'Show less' : 'View $hiddenCount more',
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+/// A single saved-course row with a Track action.
+class _SavedRow extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTrack;
+  const _SavedRow(
+      {required this.title, this.subtitle, required this.onTrack});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTrack,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.primaryLight,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                          fontSize: 11.5, color: AppColors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text('Track',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary)),
+                SizedBox(width: 2),
+                Icon(Icons.chevron_right, size: 18, color: AppColors.primary),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
