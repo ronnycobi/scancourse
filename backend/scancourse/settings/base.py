@@ -253,6 +253,9 @@ MEILISEARCH_MASTER_KEY = env('MEILISEARCH_MASTER_KEY', default='dev-master-key-c
 TESSERACT_CMD = env('TESSERACT_CMD', default='/usr/bin/tesseract')
 
 FIREBASE_CREDENTIALS_PATH = env('FIREBASE_CREDENTIALS_PATH', default='')
+# DigitalOcean-friendly alternative: paste the full service-account JSON
+# as a single env var (App Platform can't host a credentials file).
+FIREBASE_CREDENTIALS_JSON = env('FIREBASE_CREDENTIALS_JSON', default='')
 
 AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID', default='')
 AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', default='')

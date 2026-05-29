@@ -30,20 +30,37 @@ logger = logging.getLogger(__name__)
 
 # ── FCM core ────────────────────────────────────────────────────────────
 
+def _firebase_credentials():
+    """Build a firebase_admin Certificate from either a JSON blob env var
+    (FIREBASE_CREDENTIALS_JSON — the DigitalOcean-friendly way, since App
+    Platform can't host a file) or a file path (FIREBASE_CREDENTIALS_PATH,
+    for local dev). Returns None when neither is configured."""
+    from firebase_admin import credentials
+    raw = getattr(settings, 'FIREBASE_CREDENTIALS_JSON', '')
+    if raw:
+        import json
+        return credentials.Certificate(json.loads(raw))
+    path = getattr(settings, 'FIREBASE_CREDENTIALS_PATH', '')
+    if path:
+        return credentials.Certificate(path)
+    return None
+
+
 def send_fcm_notification(fcm_token: str, title: str, body: str,
                           data: dict | None = None):
     """Single-target FCM send. Silently no-ops when token / creds missing."""
     if not fcm_token:
         return
-    creds_path = getattr(settings, 'FIREBASE_CREDENTIALS_PATH', '')
-    if not creds_path:
-        logger.info('FCM skipped — FIREBASE_CREDENTIALS_PATH not set.')
-        return
     try:
         import firebase_admin
-        from firebase_admin import credentials, messaging
+        from firebase_admin import messaging
         if not firebase_admin._apps:
-            firebase_admin.initialize_app(credentials.Certificate(creds_path))
+            cred = _firebase_credentials()
+            if cred is None:
+                logger.info(
+                    'FCM skipped — no FIREBASE_CREDENTIALS_JSON/PATH set.')
+                return
+            firebase_admin.initialize_app(cred)
         msg = messaging.Message(
             notification=messaging.Notification(title=title, body=body),
             data={k: str(v) for k, v in (data or {}).items()},
