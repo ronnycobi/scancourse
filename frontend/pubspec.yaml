@@ -47,6 +47,11 @@ dependencies:
   # Serialization
   json_annotation: ^4.9.0
 
+  # Push notifications (FCM)
+  firebase_core: ^2.31.0
+  firebase_messaging: ^14.9.4
+  flutter_local_notifications: ^17.1.2
+
   cupertino_icons: ^1.0.6
 
 dev_dependencies:

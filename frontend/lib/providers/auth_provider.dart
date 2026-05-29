@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/user_model.dart';
 import '../data/repositories/auth_repository.dart';
+import '../data/services/push/push_service.dart';
 
 class AuthState {
   final UserModel? user;
@@ -57,6 +58,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Keep cached user if network fails — don't log out.
       if (cached == null) state = const AuthState();
     }
+    // Register this device for push once we know we're authenticated.
+    if (state.isAuthenticated) PushService.instance.syncToken();
   }
 
   Future<void> login(String email, String password) async {
@@ -64,6 +67,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final auth = await _repo.login(email, password);
       state = AuthState(user: auth.user);
+      PushService.instance.syncToken();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _parseError(e));
     }
@@ -88,6 +92,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         passwordConfirm: passwordConfirm,
       );
       state = AuthState(user: auth.user);
+      PushService.instance.syncToken();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _parseError(e));
     }
@@ -98,6 +103,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final auth = await _repo.googleSignIn(idToken);
       state = AuthState(user: auth.user);
+      PushService.instance.syncToken();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _parseError(e));
     }
