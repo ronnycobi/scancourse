@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/saved_provider.dart';
+import '../../../providers/course_provider.dart';
+import '../../screens/accommodation/accommodation_screen.dart';
 
 /// Heart icon that toggles a saved-item record on the backend.
 /// Drop it into any AppBar's `actions` or a card row.
@@ -35,6 +37,13 @@ class BookmarkButton extends ConsumerWidget {
           await repo.unsave(savedId);
         }
         ref.invalidate(savedItemsProvider);
+        // Saving/unsaving a course changes the personalised ranking that
+        // depends on saved courses — refresh accommodation (ranked by
+        // saved-course institutions) and the recommendation feeds.
+        if (itemType == 'course') {
+          ref.invalidate(accommodationProvider);
+          ref.invalidate(courseRecommendationsProvider);
+        }
       } catch (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

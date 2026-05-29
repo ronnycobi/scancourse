@@ -64,13 +64,78 @@ class AccommodationScreen extends ConsumerStatefulWidget {
 class _AccommodationScreenState extends ConsumerState<AccommodationScreen> {
   String? _province;
   String? _roomType;
+  int? _maxPrice;
   bool _nsfasOnly = false;
+
+  static const _roomTypes = {
+    'single': 'Single Room',
+    'sharing': 'Sharing Room',
+    'bachelor': 'Bachelor Flat',
+    'one_bed': '1 Bedroom',
+    'two_bed': '2 Bedroom',
+  };
+  static const _priceOptions = {3000: 'Under R3 000', 4000: 'Under R4 000',
+    5000: 'Under R5 000', 7000: 'Under R7 000'};
+
+  /// A chip that opens a bottom-sheet picker. `onPicked(null)` clears it.
+  Widget _pickerChip({
+    required String label,
+    required bool active,
+    required String title,
+    required Map<String, String> options,
+    required String? current,
+    required void Function(String?) onPicked,
+  }) {
+    return ActionChip(
+      label: Text(label),
+      backgroundColor: active ? AppColors.primaryLight : null,
+      labelStyle: TextStyle(
+          color: active ? AppColors.primary : AppColors.textPrimary,
+          fontWeight: active ? FontWeight.w700 : FontWeight.w500),
+      side: BorderSide(color: active ? AppColors.primary : AppColors.border),
+      onPressed: () async {
+        final picked = await showModalBottomSheet<String?>(
+          context: context,
+          builder: (_) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                ListTile(
+                  title: const Text('Any'),
+                  trailing: current == null
+                      ? const Icon(Icons.check, color: AppColors.primary)
+                      : null,
+                  onTap: () => Navigator.pop(context, '__clear__'),
+                ),
+                ...options.entries.map((e) => ListTile(
+                      title: Text(e.value),
+                      trailing: current == e.key
+                          ? const Icon(Icons.check, color: AppColors.primary)
+                          : null,
+                      onTap: () => Navigator.pop(context, e.key),
+                    )),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+        if (picked == null) return; // dismissed
+        onPicked(picked == '__clear__' ? null : picked);
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final filterParts = [
       if (_province != null) 'province=${Uri.encodeComponent(_province!)}',
       if (_roomType != null) 'room_type=${Uri.encodeComponent(_roomType!)}',
+      if (_maxPrice != null) 'max_price=$_maxPrice',
       if (_nsfasOnly) 'nsfas_accredited=true',
     ];
     final paramStr = filterParts.isEmpty ? null : filterParts.join('&');
@@ -86,33 +151,64 @@ class _AccommodationScreenState extends ConsumerState<AccommodationScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
+                  // NSFAS — prominent green accreditation filter, up front.
                   FilterChip(
+                    avatar: Icon(Icons.verified_outlined,
+                        size: 18,
+                        color: _nsfasOnly
+                            ? AppColors.eligible
+                            : AppColors.textSecondary),
                     label: const Text('NSFAS Accredited'),
                     selected: _nsfasOnly,
                     onSelected: (v) => setState(() => _nsfasOnly = v),
-                    selectedColor: AppColors.secondaryLight,
+                    selectedColor: AppColors.eligible.withOpacity(0.15),
+                    checkmarkColor: AppColors.eligible,
+                    side: BorderSide(
+                        color: _nsfasOnly
+                            ? AppColors.eligible
+                            : AppColors.border),
+                    labelStyle: TextStyle(
+                        color: _nsfasOnly
+                            ? AppColors.eligible
+                            : AppColors.textPrimary,
+                        fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(width: 8),
-                  ActionChip(
-                    label: Text(_province != null ? AppConstants.provinces[_province] ?? 'Province' : 'Province'),
-                    backgroundColor: _province != null ? AppColors.primaryLight : null,
-                    onPressed: () async {
-                      final v = await showModalBottomSheet<String>(
-                        context: context,
-                        builder: (_) => ListView(
-                          children: [
-                            const Padding(padding: EdgeInsets.all(16), child: Text('Province', style: TextStyle(fontWeight: FontWeight.w600))),
-                            ListTile(title: const Text('All provinces'), onTap: () => Navigator.pop(context, null)),
-                            ...AppConstants.provinces.entries.map((e) => ListTile(
-                              title: Text(e.value),
-                              trailing: _province == e.key ? const Icon(Icons.check, color: AppColors.primary) : null,
-                              onTap: () => Navigator.pop(context, e.key),
-                            )),
-                          ],
-                        ),
-                      );
-                      setState(() => _province = v);
+                  _pickerChip(
+                    label: _province != null
+                        ? (AppConstants.provinces[_province] ?? 'Province')
+                        : 'Province',
+                    active: _province != null,
+                    title: 'Province',
+                    options: AppConstants.provinces,
+                    current: _province,
+                    onPicked: (v) => setState(() => _province = v),
+                  ),
+                  const SizedBox(width: 8),
+                  _pickerChip(
+                    label: _roomType != null
+                        ? (_roomTypes[_roomType] ?? 'Room type')
+                        : 'Room type',
+                    active: _roomType != null,
+                    title: 'Room type',
+                    options: _roomTypes,
+                    current: _roomType,
+                    onPicked: (v) => setState(() => _roomType = v),
+                  ),
+                  const SizedBox(width: 8),
+                  _pickerChip(
+                    label: _maxPrice != null
+                        ? (_priceOptions[_maxPrice] ?? 'Price')
+                        : 'Max price',
+                    active: _maxPrice != null,
+                    title: 'Maximum monthly price',
+                    options: {
+                      for (final e in _priceOptions.entries)
+                        e.key.toString(): e.value
                     },
+                    current: _maxPrice?.toString(),
+                    onPicked: (v) =>
+                        setState(() => _maxPrice = v == null ? null : int.parse(v)),
                   ),
                 ],
               ),
@@ -133,13 +229,19 @@ class _AccommodationScreenState extends ConsumerState<AccommodationScreen> {
                         ],
                       ),
                     )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: items.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, i) => _AccommodationCard(
-                        item: items[i],
-                        onTap: () => context.push('/accommodation/${items[i].id}'),
+                  : RefreshIndicator(
+                      onRefresh: () async =>
+                          ref.invalidate(accommodationProvider(paramStr)),
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, i) => _AccommodationCard(
+                          item: items[i],
+                          onTap: () =>
+                              context.push('/accommodation/${items[i].id}'),
+                        ),
                       ),
                     ),
               loading: () => const Center(child: CircularProgressIndicator()),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/application_repository.dart';
 import '../../../providers/application_provider.dart';
+import '../../../providers/saved_provider.dart';
 
 /// Kanban view of the user's applications.
 ///
@@ -141,6 +142,9 @@ class _ApplicationsKanbanScreenState
               ),
             ),
           ),
+          // Saved courses not yet tracked → prompt the student to start
+          // tracking their progress.
+          const _SavedCoursesPrompt(),
           const Divider(height: 1),
           Expanded(
             child: appsAsync.when(
@@ -307,6 +311,118 @@ class _KanbanColumn {
     required this.color,
     required this.statuses,
   });
+}
+
+// ── Saved-courses → "track your progress" prompt ──────────────────────
+
+/// Surfaces courses the student has saved but isn't tracking yet, nudging
+/// them to start an application and report progress. Hides itself when
+/// there's nothing to suggest.
+class _SavedCoursesPrompt extends ConsumerWidget {
+  const _SavedCoursesPrompt();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(savedItemsProvider).valueOrNull ?? const [];
+    final apps = ref.watch(applicationListProvider).valueOrNull ?? const [];
+    final trackedCourseIds =
+        apps.map((a) => a.courseId).whereType<int>().toSet();
+    final suggestions = saved
+        .where((s) =>
+            s.itemType == 'course' && !trackedCourseIds.contains(s.itemId))
+        .toList();
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bookmark_added_outlined,
+                  size: 16, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Track your saved courses',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'How are these going? Add one to track your progress.',
+            style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 64,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: suggestions.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final s = suggestions[i];
+                return InkWell(
+                  onTap: () => context.push('/courses/${s.itemId}'),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 200,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: AppColors.primary.withOpacity(0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                s.itemName ?? 'Saved course',
+                                style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (s.itemSubtitle != null)
+                                Text(
+                                  s.itemSubtitle!,
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textSecondary),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.add_circle_outline,
+                            size: 20, color: AppColors.primary),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── Top stats strip ──────────────────────────────────────────────────
