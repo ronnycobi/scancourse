@@ -6,6 +6,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../providers/course_provider.dart';
 import '../../../providers/aps_provider.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../data/models/course_model.dart';
 import '../../widgets/common/bookmark_button.dart';
 import '../../widgets/common/remote_logo.dart';
 
@@ -26,6 +28,55 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
     Future.microtask(() {
       ref.read(courseRepositoryProvider).trackInteraction(widget.id, 'view');
     });
+  }
+
+  /// Provinces the student cares about — their home province plus any
+  /// preferred study provinces. Offerings in these rank first.
+  Set<String> _userProvinces() {
+    final user = ref.read(authStateProvider).user;
+    final set = <String>{};
+    if (user?.province != null && user!.province!.isNotEmpty) {
+      set.add(user.province!);
+    }
+    set.addAll(user?.preferredStudyProvinces ?? const []);
+    return set;
+  }
+
+  /// "City, Province" for a college, using the full province name.
+  String _location(CourseOffering o) {
+    final inst = o.institution;
+    if (inst == null) return '';
+    final city = (inst.city ?? '').trim();
+    final prov = AppConstants.provinces[inst.province] ?? inst.province;
+    if (city.isNotEmpty && prov.isNotEmpty) return '$city, $prov';
+    return city.isNotEmpty ? city : prov;
+  }
+
+  /// Quality proxy for ranking colleges that are equally near: NSFAS
+  /// accreditation + a real published APS cutoff + having an apply link.
+  int _quality(CourseOffering o) {
+    final inst = o.institution;
+    var q = 0;
+    if (inst?.nsfasAccredited == true) q += 2;
+    if ((o.minAps) > 0) q += 1;
+    if ((inst?.applicationUrl?.isNotEmpty == true) ||
+        (inst?.website?.isNotEmpty == true)) q += 1;
+    return q;
+  }
+
+  /// Nearby colleges first, then best-rated, then by name.
+  List<CourseOffering> _sortedOfferings(List<CourseOffering> offerings) {
+    final near = _userProvinces();
+    final list = [...offerings];
+    list.sort((a, b) {
+      final aNear = near.contains(a.institution?.province) ? 0 : 1;
+      final bNear = near.contains(b.institution?.province) ? 0 : 1;
+      if (aNear != bNear) return aNear - bNear;
+      final q = _quality(b).compareTo(_quality(a));
+      if (q != 0) return q;
+      return (a.institution?.name ?? '').compareTo(b.institution?.name ?? '');
+    });
+    return list;
   }
 
   @override
@@ -97,8 +148,13 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
 
               if (course.offerings?.isNotEmpty == true) ...[
                 Text('Institutions Offering This', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 4),
+                Text(
+                  'Closest to you first',
+                  style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                ),
                 const SizedBox(height: 12),
-                ...course.offerings!.map((o) {
+                ..._sortedOfferings(course.offerings!).map((o) {
                   // Prefer offering-level apply URL, then institution apply URL,
                   // finally fall back to the institution's website.
                   final applyUrl = (o.applicationUrl?.isNotEmpty == true)
@@ -136,14 +192,43 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: Text(
-                                o.institution?.name ?? 'Unknown',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
-                                ),
-                                softWrap: true,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    o.institution?.name ?? 'Unknown',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    softWrap: true,
+                                  ),
+                                  if (_location(o).isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.place_outlined,
+                                            size: 13,
+                                            color: AppColors.textSecondary),
+                                        const SizedBox(width: 3),
+                                        Flexible(
+                                          child: Text(
+                                            _location(o),
+                                            style: const TextStyle(
+                                              fontSize: 12.5,
+                                              color: AppColors.textSecondary,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ],

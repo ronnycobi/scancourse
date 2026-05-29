@@ -17,6 +17,34 @@ from apps.ocr import gemini_vision
 logger = logging.getLogger(__name__)
 
 
+def _dedupe_tvet(results: list[dict]) -> list[dict]:
+    """Collapse TVET offerings of the same course into a single card.
+
+    The input is already sorted best-first, so the first occurrence of each
+    TVET course_id is the strongest/nearest representative; subsequent ones
+    are dropped but counted in `offering_count` so the card can say
+    "Available at N colleges". Non-TVET offerings pass through untouched.
+    """
+    seen: dict[int, int] = {}
+    out: list[dict] = []
+    for r in results:
+        is_tvet = bool(r.get('match', {}).get('tvet')) or \
+            r.get('institution_type') == 'tvet'
+        if not is_tvet:
+            r.setdefault('offering_count', 1)
+            out.append(r)
+            continue
+        cid = r['course_id']
+        if cid in seen:
+            idx = seen[cid]
+            out[idx]['offering_count'] = out[idx].get('offering_count', 1) + 1
+            continue
+        r['offering_count'] = 1
+        seen[cid] = len(out)
+        out.append(r)
+    return out
+
+
 class CourseListView(generics.ListAPIView):
     serializer_class = CourseListSerializer
     permission_classes = (permissions.AllowAny,)
@@ -164,7 +192,16 @@ class CourseMatchView(APIView):
             limit=max(limit, 5000),
         )
 
-        # Summary reflects the true counts across everything matched.
+        # TVET national curricula (N4-N6, NC(V)) are the SAME programme at
+        # many colleges — collapse them to one card per course so the list
+        # isn't 12x "N4-N6 Business Management". Results are already sorted
+        # best-first, so the kept representative is the nearest/best-rated
+        # college; the rest are revealed (proximity-sorted) on the detail
+        # page. University offerings stay per-institution (they genuinely
+        # differ by cutoff/prestige).
+        results = _dedupe_tvet(results)
+
+        # Summary reflects the (deduped) counts shown to the user.
         summary = match_summary(results)
 
         if search:

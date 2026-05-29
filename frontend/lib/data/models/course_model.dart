@@ -60,6 +60,8 @@ class OfferingMatchModel {
   final String? programmeCode;
   final List<dynamic> subjectRequirements;
   final MatchDetail match;
+  // How many colleges offer this (TVET courses are collapsed to one card).
+  final int offeringCount;
 
   const OfferingMatchModel({
     required this.offeringId,
@@ -84,6 +86,7 @@ class OfferingMatchModel {
     this.programmeCode,
     required this.subjectRequirements,
     required this.match,
+    this.offeringCount = 1,
   });
 
   factory OfferingMatchModel.fromJson(Map<String, dynamic> json) =>
@@ -111,6 +114,7 @@ class OfferingMatchModel {
         subjectRequirements: json['subject_requirements'] as List? ?? [],
         match: MatchDetail.fromJson(
             json['match'] as Map<String, dynamic>),
+        offeringCount: (json['offering_count'] as num?)?.toInt() ?? 1,
       );
 }
 

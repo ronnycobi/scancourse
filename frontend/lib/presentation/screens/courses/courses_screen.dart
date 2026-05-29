@@ -1143,6 +1143,26 @@ class _OfferingCard extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
+          // For collapsed TVET courses — hint that more colleges offer it.
+          if (offering.offeringCount > 1) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.account_balance_outlined,
+                    size: 13, color: AppColors.primary),
+                const SizedBox(width: 4),
+                Text(
+                  'Offered at ${offering.offeringCount} colleges · tap to choose',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 8),
 
           // ── Meta chips ───────────────────────────────────────────────
