@@ -1,6 +1,11 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../api/api_client.dart';
+
+/// Storage key for the per-device foreground-notifications toggle.
+/// Mirrors the Settings screen's local pref.
+const _kPrefPushLocal = 'pref_push_local';
 
 /// Background / terminated-state handler. Must be a top-level function.
 /// FCM auto-displays messages that carry a `notification` block in the
@@ -76,9 +81,16 @@ class PushService {
     } catch (_) {}
   }
 
-  void _showLocal(RemoteMessage m) {
+  Future<void> _showLocal(RemoteMessage m) async {
     // A push arrived while the app is open → bump the bell badge.
     onInboxChanged?.call();
+    // Respect the Settings → Push notifications toggle (per device,
+    // controls foreground heads-up only — backgrounded messages are still
+    // shown by the OS).
+    try {
+      final v = await const FlutterSecureStorage().read(key: _kPrefPushLocal);
+      if (v == 'false') return;
+    } catch (_) {}
     final n = m.notification;
     if (n == null) return;
     _local.show(

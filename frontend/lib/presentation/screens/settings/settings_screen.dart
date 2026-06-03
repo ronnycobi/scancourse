@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/services/api/api_client.dart';
 import '../../../providers/auth_provider.dart';
 import '../../widgets/common/app_avatar.dart';
+
+/// Storage key for the per-device in-app push toggle. Read by PushService
+/// before showing a foreground heads-up notification.
+const kPrefPushLocal = 'pref_push_local';
 
 /// Facebook-style settings: grouped sections, account card at top, each row
 /// is icon + label + optional value preview + chevron. Toggles inline where
@@ -18,11 +23,33 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  // Local UI toggles for now — wiring to a real notifications-prefs
-  // endpoint can come later. The values default to "on" because that's
-  // what most users want.
+  // Per-device foreground push pref. Persisted to secure storage and read
+  // by PushService before showing a heads-up notification while the app
+  // is open. Defaults to on.
   bool _pushNotificationsOn = true;
-  bool _emailRemindersOn = true;
+  static const _storage = FlutterSecureStorage();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPushPref();
+  }
+
+  Future<void> _loadPushPref() async {
+    try {
+      final v = await _storage.read(key: kPrefPushLocal);
+      if (mounted && v == 'false') {
+        setState(() => _pushNotificationsOn = false);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _setPushPref(bool v) async {
+    setState(() => _pushNotificationsOn = v);
+    try {
+      await _storage.write(key: kPrefPushLocal, value: v.toString());
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,14 +111,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           // ── Account ─────────────────────────────────────────────────
+          // (Edit profile is reachable via the Edit button in the header
+          // card above — no duplicate row here.)
           _Section(
             title: 'Account',
             children: [
-              _Row(
-                icon: Icons.person_outline,
-                label: 'Edit profile',
-                onTap: () => context.push('/edit-profile'),
-              ),
               _Row(
                 icon: Icons.lock_outline,
                 label: 'Change password',
@@ -122,16 +146,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 icon: Icons.notifications_active_outlined,
                 label: 'Push notifications',
                 subtitle:
-                    'New course matches, bursary deadlines, AI insights',
+                    'Heads-up notifications while the app is open (this device).',
                 value: _pushNotificationsOn,
-                onChanged: (v) => setState(() => _pushNotificationsOn = v),
+                onChanged: _setPushPref,
               ),
-              _SwitchRow(
+              _Row(
                 icon: Icons.mark_email_unread_outlined,
                 label: 'Email reminders',
-                subtitle: 'Weekly digest + critical deadline alerts',
-                value: _emailRemindersOn,
-                onChanged: (v) => setState(() => _emailRemindersOn = v),
+                subtitle: 'Coming soon',
+                trailingText: 'Off',
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'Email preferences are coming in the next update.'),
+                    ),
+                  );
+                },
               ),
               _Row(
                 icon: Icons.inbox_outlined,
