@@ -393,8 +393,11 @@ class _SavedCoursesPromptState extends ConsumerState<_SavedCoursesPrompt> {
                           child: _SavedRow(
                             title: s.itemName ?? 'Saved course',
                             subtitle: s.itemSubtitle,
+                            // /courses/:id lives inside the bottom-nav
+                            // ShellRoute — go() from outside the shell so the
+                            // detail renders (push shows a blank shell).
                             onTrack: () =>
-                                context.push('/courses/${s.itemId}'),
+                                context.go('/courses/${s.itemId}'),
                           ),
                         ))
                     .toList(),
