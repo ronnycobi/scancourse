@@ -212,11 +212,14 @@ class _NotificationTile extends ConsumerWidget {
     }
     final route = _deepLink();
     if (route != null && context.mounted) {
-      // Tab destinations (/courses, /bursaries, /applications) live inside
-      // the bottom-nav ShellRoute — use go() so the shell branch resolves
-      // and renders its content. push() would show an empty shell body.
-      const shellRoots = ['/courses', '/bursaries', '/applications'];
-      final isShell = shellRoots.any((r) => route == r);
+      // Bottom-nav ShellRoute branches (and their detail children) need
+      // go() — push() from outside the shell renders a blank shell.
+      // (/applications is NOT in the shell, so it stays as push.)
+      const shellPrefixes = [
+        '/home', '/courses', '/bursaries', '/accommodation', '/ai', '/profile',
+      ];
+      final isShell = shellPrefixes.any(
+          (p) => route == p || route.startsWith('$p/'));
       if (isShell) {
         context.go(route);
       } else {

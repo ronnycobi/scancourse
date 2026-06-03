@@ -136,7 +136,9 @@ class _SavedTab extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             OutlinedButton(
-              onPressed: () => context.push(_route),
+              // _route (/courses, /bursaries, /accommodation) sits inside the
+              // bottom-nav ShellRoute — go(), not push(), or it shows blank.
+              onPressed: () => context.go(_route),
               child: const Text('Browse'),
             ),
           ],
@@ -208,7 +210,9 @@ class _SavedTab extends ConsumerWidget {
               ],
             ),
             trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-            onTap: () => context.push('$_route/${item.itemId}'),
+            // Detail routes (/courses/:id etc.) are inside the bottom-nav
+            // ShellRoute — go() mounts the shell so the detail renders.
+            onTap: () => context.go('$_route/${item.itemId}'),
           ),
         );
       },
