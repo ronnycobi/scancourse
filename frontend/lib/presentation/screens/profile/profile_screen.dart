@@ -21,17 +21,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   static const _storage = FlutterSecureStorage();
   File? _localImage;
 
-  /// Grade-aware label for the "My plan" tile.
-  /// - Grade 10/11 → still in school → can improve marks
-  /// - Grade 12/gap year → marks locked → focus on applications
-  static String _planTileTitle(String? grade) {
-    if (grade == 'grade_10' || grade == 'grade_11') return 'My Improvement Path';
-    if (grade == 'grade_12' || grade == 'gap_year' || grade == 'other') {
-      return 'My Next Steps';
-    }
-    return 'My Plan';
-  }
-
+  /// Grade-aware subtitle for the consolidated APS+Plan tile.
+  /// Grade 10/11 → still in school → can improve marks
+  /// Grade 12/gap year → marks locked → focus on applications
   static String _planTileSubtitle(String? grade) {
     if (grade == 'grade_10' || grade == 'grade_11') {
       return 'AI plan to lift your marks';
@@ -50,9 +42,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _loadLocalImage() async {
     final path = await _storage.read(key: 'profile_image_path');
-    if (path != null && File(path).existsSync()) {
-      setState(() => _localImage = File(path));
+    if (path == null) return;
+    final file = File(path);
+    if (await file.exists() && mounted) {
+      setState(() => _localImage = file);
     }
+  }
+
+  /// Multi-select-aware display: show every preferred field the user
+  /// picked (not just the first/singular one). Falls back to the legacy
+  /// singular field, then 'Not set'.
+  static String _fieldsDisplay(dynamic user) {
+    final list = (user?.preferredFields as List?)?.cast<String>() ?? const [];
+    if (list.isNotEmpty) {
+      return list
+          .map((f) => AppConstants.studyFields[f] ?? f)
+          .join(', ');
+    }
+    final single = user?.preferredField as String?;
+    if (single != null && single.isNotEmpty) {
+      return AppConstants.studyFields[single] ?? single;
+    }
+    return 'Not set';
+  }
+
+  static String _provincesDisplay(dynamic user) {
+    final list = (user?.preferredStudyProvinces as List?)?.cast<String>() ??
+        const [];
+    if (list.isNotEmpty) {
+      return list
+          .map((p) => AppConstants.provinces[p] ?? p)
+          .join(', ');
+    }
+    final single = user?.preferredStudyProvince as String?;
+    if (single != null && single.isNotEmpty) {
+      return AppConstants.provinces[single] ?? single;
+    }
+    return 'Not set';
+  }
+
+  static String _careersDisplay(dynamic user) {
+    final list =
+        (user?.dreamCareers as List?)?.cast<String>() ?? const [];
+    if (list.isNotEmpty) return list.join(', ');
+    final single = user?.dreamCareer as String?;
+    if (single != null && single.isNotEmpty) return single;
+    return 'Not set';
   }
 
   @override
@@ -174,22 +209,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     _ProfileTile(
                       icon: Icons.category_outlined,
-                      label: 'Preferred Field',
-                      value: user?.preferredField != null
-                          ? (AppConstants.studyFields[user!.preferredField] ?? user.preferredField!)
-                          : 'Not set',
+                      label: 'Preferred Fields',
+                      value: _fieldsDisplay(user),
                     ),
                     _ProfileTile(
                       icon: Icons.star_outline,
-                      label: 'Dream Career',
-                      value: user?.dreamCareer?.isNotEmpty == true ? user!.dreamCareer! : 'Not set',
+                      label: 'Dream Careers',
+                      value: _careersDisplay(user),
                     ),
                     _ProfileTile(
                       icon: Icons.school_outlined,
-                      label: 'Preferred Study Province',
-                      value: user?.preferredStudyProvince != null
-                          ? (AppConstants.provinces[user!.preferredStudyProvince] ?? user.preferredStudyProvince!)
-                          : 'Not set',
+                      label: 'Preferred Study Provinces',
+                      value: _provincesDisplay(user),
                       isLast: true,
                     ),
                   ],
@@ -209,13 +240,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: Column(
                   children: [
                     // Personal data — things that are YOURS, not settings.
+                    // (My APS Journey + My Plan were merged into one screen.)
                     ListTile(
                       leading: const Icon(Icons.show_chart_rounded,
                           color: AppColors.primary),
-                      title: const Text('My APS Journey'),
-                      subtitle: const Text(
-                          'Track how your APS has grown over time',
-                          style: TextStyle(
+                      title: const Text('My APS & Next Steps'),
+                      subtitle: Text(
+                          _planTileSubtitle(user?.grade),
+                          style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary)),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
@@ -244,18 +276,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                       onTap: () => context.push('/saved'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.psychology_alt_outlined,
-                          color: AppColors.primary),
-                      title: Text(_planTileTitle(user?.grade)),
-                      subtitle: Text(
-                          _planTileSubtitle(user?.grade),
-                          style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () => context.push('/improvement-plan'),
                     ),
                     ListTile(
                       leading: const Icon(Icons.auto_awesome, color: AppColors.primary),
