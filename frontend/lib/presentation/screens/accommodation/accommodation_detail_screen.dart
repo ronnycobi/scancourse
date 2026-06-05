@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
@@ -53,8 +54,29 @@ class AccommodationDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Accommodation'),
-        leading: BackButton(onPressed: () => context.pop()),
-        actions: [BookmarkButton(itemType: 'accommodation', itemId: id)],
+        leading: BackButton(onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        }),
+        actions: [
+          async.maybeWhen(
+            data: (a) => IconButton(
+              icon: const Icon(Icons.ios_share),
+              tooltip: 'Share',
+              onPressed: () => Share.share(
+                '${a['name']}'
+                '${a['city'] != null ? ' in ${a['city']}' : ''} '
+                'on Scancourse · https://scancourse.co.za',
+                subject: (a['name'] as String?) ?? 'Accommodation',
+              ),
+            ),
+            orElse: () => const SizedBox(width: 48),
+          ),
+          BookmarkButton(itemType: 'accommodation', itemId: id),
+        ],
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),

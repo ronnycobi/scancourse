@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
@@ -136,8 +137,30 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Course Details'),
-        leading: BackButton(onPressed: () => context.pop()),
+        // Pop if we can; otherwise (entered via go() from My Applications /
+        // Saved) fall back to /home so back never strands the user.
+        leading: BackButton(onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        }),
         actions: [
+          // Share course (built from loaded data when available).
+          courseAsync.maybeWhen(
+            data: (c) => IconButton(
+              icon: const Icon(Icons.ios_share),
+              tooltip: 'Share',
+              onPressed: () => Share.share(
+                'Check out ${c.name}'
+                '${c.institutionName != null ? ' at ${c.institutionName}' : ''} '
+                'on Scancourse — https://scancourse.co.za',
+                subject: c.name,
+              ),
+            ),
+            orElse: () => const SizedBox(width: 48),
+          ),
           BookmarkButton(itemType: 'course', itemId: widget.id),
         ],
       ),
@@ -414,12 +437,9 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
                   minimumSize: const Size(double.infinity, 44),
                 ),
               ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () => context.push('/ai'),
-                icon: const Icon(Icons.auto_awesome),
-                label: const Text('Ask AI about this course'),
-              ),
+              // (Removed the generic "Ask AI about this course" button —
+              // it just sent users to the empty AI chat. The targeted
+              // "Do I qualify? Ask AI" above does the actionable thing.)
             ],
           ),
         ),
