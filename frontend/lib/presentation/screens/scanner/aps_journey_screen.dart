@@ -15,18 +15,35 @@ class ApsJourneyScreen extends ConsumerStatefulWidget {
   ConsumerState<ApsJourneyScreen> createState() => _ApsJourneyScreenState();
 }
 
+// Per-step action card palette + icons for the AI Coach Next Steps list.
+const _planPalette = [
+  AppColors.primary,
+  AppColors.accent,
+  AppColors.eligible,
+];
+const _planIcons = [
+  Icons.school_outlined,
+  Icons.menu_book_outlined,
+  Icons.trending_up_rounded,
+];
+
 class _ApsJourneyScreenState extends ConsumerState<ApsJourneyScreen> {
   late Future<Map<String, dynamic>> _future;
+  late Future<Map<String, dynamic>> _planFuture;
 
   @override
   void initState() {
     super.initState();
-    _future = ref.read(ocrRepositoryProvider).getApsJourney();
+    final repo = ref.read(ocrRepositoryProvider);
+    _future = repo.getApsJourney();
+    _planFuture = repo.getImprovementPlan();
   }
 
   void _refresh() {
     setState(() {
-      _future = ref.read(ocrRepositoryProvider).getApsJourney();
+      final repo = ref.read(ocrRepositoryProvider);
+      _future = repo.getApsJourney();
+      _planFuture = repo.getImprovementPlan();
     });
   }
 
@@ -35,7 +52,7 @@ class _ApsJourneyScreenState extends ConsumerState<ApsJourneyScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF2F4F7),
       appBar: AppBar(
-        title: const Text('My APS Journey'),
+        title: const Text('My APS & Next Steps'),
         leading: BackButton(onPressed: () => context.pop()),
         actions: [
           IconButton(
@@ -84,6 +101,96 @@ class _ApsJourneyScreenState extends ConsumerState<ApsJourneyScreen> {
                 if (unlocked != null && (unlocked['delta'] as int? ?? 0) > 0)
                   _UnlockedCard(unlocked: unlocked),
                 if (unlocked != null) const SizedBox(height: 16),
+
+                // ── Next Steps (AI coach) ────────────────────────────
+                FutureBuilder<Map<String, dynamic>>(
+                  future: _planFuture,
+                  builder: (ctx, planSnap) {
+                    if (planSnap.connectionState != ConnectionState.done) {
+                      return const _PlanLoading();
+                    }
+                    if (!planSnap.hasData) return const SizedBox.shrink();
+                    final plan = Map<String, dynamic>.from(
+                        (planSnap.data!['plan'] as Map?) ?? const {});
+                    final summary = (plan['summary'] as String?) ?? '';
+                    final actions =
+                        ((plan['actions'] as List?) ?? const [])
+                            .cast<Map>();
+                    if (summary.isEmpty && actions.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // AI Coach summary banner.
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.primary, AppColors.primaryDark],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: const [
+                                  Icon(Icons.auto_awesome,
+                                      color: Colors.white, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Your AI Coach · Next Steps',
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800)),
+                                ],
+                              ),
+                              if (summary.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                Text(summary,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        height: 1.45)),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ...actions.asMap().entries.map((entry) {
+                          final i = entry.key;
+                          final a =
+                              Map<String, dynamic>.from(entry.value);
+                          return _ActionCard(
+                            index: i + 1,
+                            icon: _planIcons[i % _planIcons.length],
+                            color: _planPalette[i % _planPalette.length],
+                            title: (a['title'] as String?) ?? '',
+                            description:
+                                (a['description'] as String?) ?? '',
+                            impact: (a['impact'] as String?) ?? '',
+                          );
+                        }),
+                        if (actions.isNotEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              'AI suggestions are estimates. Always verify subject requirements with the university.',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textHint,
+                                  fontStyle: FontStyle.italic),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+
                 _CtaCard(),
                 const SizedBox(height: 12),
                 const Center(
@@ -556,6 +663,128 @@ class _CtaCard extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── AI Coach Next-Steps cards ───────────────────────────────────────
+
+/// Compact skeleton while the plan is still being fetched. Keeps the
+/// rest of the journey visible immediately and only this section pulses.
+class _PlanLoading extends StatelessWidget {
+  const _PlanLoading();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: const [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 12),
+          Text('Loading your next steps…',
+              style: TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  final int index;
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String description;
+  final String impact;
+
+  const _ActionCard({
+    required this.index,
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.description,
+    required this.impact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Text('Step $index',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                      letterSpacing: 0.5)),
+              const Spacer(),
+              if (impact.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    impact,
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: color),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w700, height: 1.3),
+          ),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.5),
+            ),
+          ],
         ],
       ),
     );

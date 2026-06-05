@@ -13,7 +13,6 @@ import '../../presentation/screens/scanner/manual_entry_screen.dart';
 import '../../presentation/screens/scanner/reports_screen.dart';
 import '../../presentation/screens/scanner/results_screen.dart';
 import '../../presentation/screens/scanner/report_edit_screen.dart';
-import '../../presentation/screens/scanner/improvement_plan_screen.dart';
 import '../../presentation/screens/scanner/aps_journey_screen.dart';
 import '../../presentation/screens/courses/courses_screen.dart';
 import '../../presentation/screens/courses/course_detail_screen.dart';
@@ -130,7 +129,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/edit-profile', builder: (_, __) => const EditProfileScreen()),
       GoRoute(path: '/change-password', builder: (_, __) => const ChangePasswordScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
-      GoRoute(path: '/improvement-plan', builder: (_, __) => const ImprovementPlanScreen()),
+      // "My Next Steps" and "My APS Journey" were merged into one screen.
+      // Both routes now land on the combined ApsJourneyScreen.
+      GoRoute(path: '/improvement-plan', builder: (_, __) => const ApsJourneyScreen()),
       GoRoute(path: '/aps-journey', builder: (_, __) => const ApsJourneyScreen()),
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/saved', builder: (_, __) => const SavedItemsScreen()),
