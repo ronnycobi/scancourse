@@ -150,7 +150,7 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
           // Share course (built from loaded data when available).
           courseAsync.maybeWhen(
             data: (c) => IconButton(
-              icon: const Icon(Icons.ios_share),
+              icon: const Icon(Icons.share),
               tooltip: 'Share',
               onPressed: () => Share.share(
                 'Check out ${c.name}'
@@ -333,32 +333,11 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
                           ],
                         ),
                         const SizedBox(height: 10),
+                        // (Track button removed — applications are added via
+                        // the saved-courses prompt on My Applications.)
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            // Track → adds this institution+course to the
-                            // student's Applications (Kanban) board.
-                            OutlinedButton.icon(
-                              onPressed: () => _trackApplication(
-                                context, ref,
-                                institutionId: o.institution?.id,
-                                courseId: course.id,
-                                applyUrl: applyUrl,
-                                deadline: o.applicationDeadline,
-                              ),
-                              icon: const Icon(Icons.bookmark_add_outlined,
-                                  size: 16),
-                              label: const Text('Track'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primary,
-                                minimumSize: const Size(0, 34),
-                                tapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                textStyle: const TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
                             ElevatedButton(
                               onPressed: applyUrl != null
                                   ? () => launchUrl(

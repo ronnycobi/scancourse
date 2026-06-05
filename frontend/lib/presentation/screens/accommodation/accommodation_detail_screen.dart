@@ -64,7 +64,7 @@ class AccommodationDetailScreen extends ConsumerWidget {
         actions: [
           async.maybeWhen(
             data: (a) => IconButton(
-              icon: const Icon(Icons.ios_share),
+              icon: const Icon(Icons.share),
               tooltip: 'Share',
               onPressed: () => Share.share(
                 '${a['name']}'

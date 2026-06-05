@@ -45,7 +45,7 @@ class BursaryDetailScreen extends ConsumerWidget {
         actions: [
           bursaryAsync.maybeWhen(
             data: (b) => IconButton(
-              icon: const Icon(Icons.ios_share),
+              icon: const Icon(Icons.share),
               tooltip: 'Share',
               onPressed: () => Share.share(
                 '${b.name} — ${b.provider}'
