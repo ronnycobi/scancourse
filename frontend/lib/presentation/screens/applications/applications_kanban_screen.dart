@@ -222,13 +222,28 @@ class _ApplicationsKanbanScreenState
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('Move to…',
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w800)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Update your progress',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Where are you with ${app.courseName ?? "this application"}'
+                        '${app.courseName != null ? ' at ${app.institutionName}' : ''}?',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            height: 1.35),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const Divider(height: 1),
+                const SizedBox(height: 4),
                 for (final s in const [
                   ('in_progress', 'In progress', Icons.edit_outlined),
                   ('submitted', 'Submitted', Icons.send_outlined),
