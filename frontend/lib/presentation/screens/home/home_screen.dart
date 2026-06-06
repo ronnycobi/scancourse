@@ -11,7 +11,6 @@ import '../../../data/models/bursary_match_model.dart';
 import '../../../providers/bursary_provider.dart';
 import '../../../providers/application_provider.dart';
 import '../bursaries/bursaries_screen.dart';
-import '../../widgets/cards/aps_score_card.dart';
 import '../../widgets/common/app_avatar.dart';
 import '../../widgets/common/notification_bell.dart';
 import '../../widgets/cards/quick_action_card.dart';
@@ -402,7 +401,6 @@ class _RecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final grad = _headerGradient;
     return Material(
       color: Colors.transparent,
       child: InkWell(

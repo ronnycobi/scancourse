@@ -188,8 +188,6 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
                           : (o.institution?.website?.isNotEmpty == true)
                               ? o.institution!.website!
                               : null;
-                  final isFallback = applyUrl != null &&
-                      (o.applicationUrl == null || o.applicationUrl!.isEmpty);
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(16),
