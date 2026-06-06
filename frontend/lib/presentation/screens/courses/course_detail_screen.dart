@@ -8,7 +8,6 @@ import '../../../core/constants/app_constants.dart';
 import '../../../providers/course_provider.dart';
 import '../../../providers/aps_provider.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../providers/application_provider.dart';
 import '../../../data/models/course_model.dart';
 import '../../widgets/common/bookmark_button.dart';
 import '../../widgets/common/remote_logo.dart';
@@ -82,54 +81,6 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen> {
   }
 
   /// Add this institution+course to the student's Applications board.
-  Future<void> _trackApplication(
-    BuildContext context,
-    WidgetRef ref, {
-    required int? institutionId,
-    required int courseId,
-    String? applyUrl,
-    String? deadline,
-  }) async {
-    if (institutionId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Institution info missing.')),
-      );
-      return;
-    }
-    try {
-      await ref.read(applicationRepositoryProvider).create(
-            institutionId: institutionId,
-            courseId: courseId,
-            applicationUrl: applyUrl,
-            deadline: deadline,
-          );
-      ref.invalidate(applicationListProvider);
-      ref.invalidate(applicationStatsProvider);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Added to My Applications'),
-            backgroundColor: AppColors.eligible,
-            action: SnackBarAction(
-              label: 'VIEW',
-              textColor: Colors.white,
-              onPressed: () => context.push('/applications'),
-            ),
-          ),
-        );
-      }
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not add to applications. Try again.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final courseAsync = ref.watch(courseDetailProvider(widget.id));
