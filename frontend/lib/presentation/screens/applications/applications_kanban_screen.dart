@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/application_repository.dart';
 import '../../../providers/application_provider.dart';
+import '../../../providers/course_provider.dart';
 import '../../../providers/saved_provider.dart';
 
 /// Kanban view of the user's applications.
@@ -408,11 +409,22 @@ class _SavedCoursesPromptState extends ConsumerState<_SavedCoursesPrompt> {
                           child: _SavedRow(
                             title: s.itemName ?? 'Saved course',
                             subtitle: s.itemSubtitle,
-                            // /courses/:id lives inside the bottom-nav
-                            // ShellRoute — go() from outside the shell so the
-                            // detail renders (push shows a blank shell).
-                            onTrack: () =>
-                                context.go('/courses/${s.itemId}'),
+                            // Open a focused "Track this course" sheet
+                            // (pick college + initial status) so the user
+                            // can add the application without leaving My
+                            // Applications.
+                            onTrack: () => showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(20)),
+                              ),
+                              builder: (_) => _TrackCourseSheet(
+                                courseId: s.itemId,
+                                courseName: s.itemName,
+                              ),
+                            ),
                           ),
                         ))
                     .toList(),
@@ -954,6 +966,261 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: 12),
             OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+
+// ── Track a saved course → pick college + initial status ─────────────
+
+/// Bottom sheet that asks the user which college they are applying to and
+/// the current status of that application, then creates it on the board.
+/// Reached from the "Track your saved courses" strip — keeps the user on
+/// My Applications instead of bouncing them to course detail.
+class _TrackCourseSheet extends ConsumerStatefulWidget {
+  final int courseId;
+  final String? courseName;
+  const _TrackCourseSheet({required this.courseId, this.courseName});
+
+  @override
+  ConsumerState<_TrackCourseSheet> createState() => _TrackCourseSheetState();
+}
+
+class _TrackCourseSheetState extends ConsumerState<_TrackCourseSheet> {
+  int? _offeringIdx;
+  String _status = "draft";
+  bool _busy = false;
+
+  static const _statusOptions = <(String, String, IconData)>[
+    ("draft", "Draft", Icons.edit_note),
+    ("in_progress", "In progress", Icons.edit_outlined),
+    ("submitted", "Submitted", Icons.send_outlined),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final courseAsync = ref.watch(courseDetailProvider(widget.courseId));
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: courseAsync.when(
+          loading: () => const SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.wifi_off_outlined,
+                    size: 48, color: AppColors.textHint),
+                const SizedBox(height: 8),
+                const Text("Could not load colleges. Try again."),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => ref
+                      .invalidate(courseDetailProvider(widget.courseId)),
+                  child: const Text("Retry"),
+                ),
+              ],
+            ),
+          ),
+          data: (course) {
+            final offerings = course.offerings ?? const [];
+            if (_offeringIdx == null && offerings.length == 1) {
+              _offeringIdx = 0;
+            }
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const Text("Track this course",
+                      style: TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.courseName ?? course.name,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        height: 1.35),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text("Which college are you applying to?",
+                      style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  if (offerings.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        "No colleges listed for this course yet.",
+                        style: TextStyle(
+                            fontSize: 12, color: AppColors.textHint),
+                      ),
+                    )
+                  else
+                    Column(
+                      children: List.generate(offerings.length, (i) {
+                        final o = offerings[i];
+                        final selected = i == _offeringIdx;
+                        return RadioListTile<int>(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          activeColor: AppColors.primary,
+                          value: i,
+                          groupValue: _offeringIdx,
+                          onChanged: (v) => setState(() => _offeringIdx = v),
+                          title: Text(
+                            o.institution?.name ?? "Unknown institution",
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500),
+                          ),
+                          subtitle: Text(
+                            [
+                              if (o.institution?.city != null &&
+                                  o.institution!.city!.isNotEmpty)
+                                o.institution!.city!,
+                              "Min APS ${o.minAps}",
+                            ].join(" · "),
+                            style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary),
+                          ),
+                        );
+                      }),
+                    ),
+                  const SizedBox(height: 14),
+                  const Text("Your current status",
+                      style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final s in _statusOptions)
+                        ChoiceChip(
+                          avatar: Icon(
+                            s.$3,
+                            size: 16,
+                            color: _status == s.$1
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                          ),
+                          label: Text(s.$2),
+                          selected: _status == s.$1,
+                          onSelected: (_) =>
+                              setState(() => _status = s.$1),
+                          selectedColor: AppColors.primaryLight,
+                          labelStyle: TextStyle(
+                            color: _status == s.$1
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
+                            fontWeight: _status == s.$1
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          side: BorderSide(
+                              color: _status == s.$1
+                                  ? AppColors.primary
+                                  : AppColors.border),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed:
+                          (_busy || _offeringIdx == null || offerings.isEmpty)
+                              ? null
+                              : () async {
+                                  setState(() => _busy = true);
+                                  final o = offerings[_offeringIdx!];
+                                  final repo = ref.read(
+                                      applicationRepositoryProvider);
+                                  try {
+                                    final newId = await repo.create(
+                                      institutionId:
+                                          o.institution?.id ?? 0,
+                                      courseId: course.id,
+                                      applicationUrl: o.applicationUrl,
+                                      deadline: o.applicationDeadline,
+                                    );
+                                    if (_status != "draft") {
+                                      await repo.updateStatus(
+                                          newId, _status);
+                                    }
+                                    ref.invalidate(applicationListProvider);
+                                    ref
+                                        .invalidate(applicationStatsProvider);
+                                    if (context.mounted) {
+                                      Navigator.of(context).pop();
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              "Added to My Applications"),
+                                          backgroundColor:
+                                              AppColors.eligible,
+                                        ),
+                                      );
+                                    }
+                                  } catch (_) {
+                                    if (context.mounted) {
+                                      setState(() => _busy = false);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              "Could not add — try again."),
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                      icon: _busy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.add_task),
+                      label: const Text("Add to My Applications"),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
