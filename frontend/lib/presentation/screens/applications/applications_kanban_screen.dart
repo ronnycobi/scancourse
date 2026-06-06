@@ -143,9 +143,9 @@ class _ApplicationsKanbanScreenState
               ),
             ),
           ),
-          // Saved courses not yet tracked → prompt the student to start
-          // tracking their progress.
-          const _SavedCoursesPrompt(),
+          // Saved courses not yet tracked (or only in Draft) → prompt
+          // the student to start (or finish) tracking their progress.
+          _SavedCoursesPrompt(onUpdateProgress: _showChangeStatusSheet),
           const Divider(height: 1),
           Expanded(
             child: appsAsync.when(
@@ -335,8 +335,16 @@ class _KanbanColumn {
 /// them to start an application and report progress. Vertical list — shows
 /// 5 with a "view more" expander; tap a row to go track it. Hides itself
 /// when there's nothing to suggest.
+/// Statuses that mean "the application is still unfinished" — those
+/// courses keep showing in the saved-courses strip as a nudge.
+const _pendingStatuses = {'draft', 'in_progress'};
+
 class _SavedCoursesPrompt extends ConsumerStatefulWidget {
-  const _SavedCoursesPrompt();
+  /// Called when a row with an existing Draft application is tapped — the
+  /// kanban hands in its status-update sheet so the student can advance
+  /// the existing draft instead of starting a fresh one.
+  final Future<void> Function(ApplicationModel) onUpdateProgress;
+  const _SavedCoursesPrompt({required this.onUpdateProgress});
 
   @override
   ConsumerState<_SavedCoursesPrompt> createState() =>
@@ -351,11 +359,25 @@ class _SavedCoursesPromptState extends ConsumerState<_SavedCoursesPrompt> {
   Widget build(BuildContext context) {
     final saved = ref.watch(savedItemsProvider).valueOrNull ?? const [];
     final apps = ref.watch(applicationListProvider).valueOrNull ?? const [];
-    final trackedCourseIds =
-        apps.map((a) => a.courseId).whereType<int>().toSet();
+
+    // Courses that already have a Submitted (or beyond) application —
+    // those drop off the saved-courses nudge. Drafts/in-progress STAY
+    // here as a "finish what you started" reminder, with a badge.
+    final submittedCourseIds = apps
+        .where((a) =>
+            a.courseId != null && !_pendingStatuses.contains(a.status))
+        .map((a) => a.courseId!)
+        .toSet();
+    final pendingByCourseId = <int, ApplicationModel>{
+      for (final a in apps)
+        if (a.courseId != null && _pendingStatuses.contains(a.status))
+          a.courseId!: a,
+    };
+
     final suggestions = saved
         .where((s) =>
-            s.itemType == 'course' && !trackedCourseIds.contains(s.itemId))
+            s.itemType == 'course' &&
+            !submittedCourseIds.contains(s.itemId))
         .toList();
     if (suggestions.isEmpty) return const SizedBox.shrink();
 
@@ -403,31 +425,39 @@ class _SavedCoursesPromptState extends ConsumerState<_SavedCoursesPrompt> {
             constraints: const BoxConstraints(maxHeight: 280),
             child: SingleChildScrollView(
               child: Column(
-                children: shown
-                    .map((s) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: _SavedRow(
-                            title: s.itemName ?? 'Saved course',
-                            subtitle: s.itemSubtitle,
-                            // Open a focused "Track this course" sheet
-                            // (pick college + initial status) so the user
-                            // can add the application without leaving My
-                            // Applications.
-                            onTrack: () => showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(20)),
-                              ),
-                              builder: (_) => _TrackCourseSheet(
-                                courseId: s.itemId,
-                                courseName: s.itemName,
-                              ),
+                children: shown.map((s) {
+                  final pending = pendingByCourseId[s.itemId];
+                  final isDraft = pending != null;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: _SavedRow(
+                      title: s.itemName ?? 'Saved course',
+                      subtitle: s.itemSubtitle,
+                      isDraft: isDraft,
+                      // If there's already a draft, jump to the update-
+                      // progress sheet for that application; otherwise
+                      // open the Track sheet to start a new one.
+                      onTrack: () {
+                        if (pending != null) {
+                          widget.onUpdateProgress(pending);
+                        } else {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(20)),
                             ),
-                          ),
-                        ))
-                    .toList(),
+                            builder: (_) => _TrackCourseSheet(
+                              courseId: s.itemId,
+                              courseName: s.itemName,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           ),
@@ -455,16 +485,24 @@ class _SavedCoursesPromptState extends ConsumerState<_SavedCoursesPrompt> {
   }
 }
 
-/// A single saved-course row with a Track action.
+/// A single saved-course row. When [isDraft] is true the row shows a
+/// "Draft started" badge — the tap action is to advance that draft, not
+/// to create a new application.
 class _SavedRow extends StatelessWidget {
   final String title;
   final String? subtitle;
   final VoidCallback onTrack;
-  const _SavedRow(
-      {required this.title, this.subtitle, required this.onTrack});
+  final bool isDraft;
+  const _SavedRow({
+    required this.title,
+    this.subtitle,
+    required this.onTrack,
+    this.isDraft = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final actionLabel = isDraft ? 'Update' : 'Track';
     return InkWell(
       onTap: onTrack,
       borderRadius: BorderRadius.circular(12),
@@ -481,14 +519,38 @@ class _SavedRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isDraft) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Draft started',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.accent),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   if (subtitle != null)
                     Text(
@@ -504,14 +566,15 @@ class _SavedRow extends StatelessWidget {
             const SizedBox(width: 8),
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text('Track',
-                    style: TextStyle(
+              children: [
+                Text(actionLabel,
+                    style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: AppColors.primary)),
-                SizedBox(width: 2),
-                Icon(Icons.chevron_right, size: 18, color: AppColors.primary),
+                const SizedBox(width: 2),
+                const Icon(Icons.chevron_right,
+                    size: 18, color: AppColors.primary),
               ],
             ),
           ],
