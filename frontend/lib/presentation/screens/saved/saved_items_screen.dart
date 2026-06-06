@@ -36,7 +36,13 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Saved'),
-        leading: BackButton(onPressed: () => context.pop()),
+        leading: BackButton(onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        }),
         bottom: TabBar(
           controller: _tab,
           labelColor: AppColors.primary,
@@ -71,9 +77,14 @@ class _SavedItemsScreenState extends ConsumerState<SavedItemsScreen>
           return TabBarView(
             controller: _tab,
             children: _types
-                .map((t) => _SavedTab(
-                      items: items.where((i) => i.itemType == t).toList(),
-                      itemType: t,
+                .map((t) => RefreshIndicator(
+                      onRefresh: () async =>
+                          ref.invalidate(savedItemsProvider),
+                      child: _SavedTab(
+                        items:
+                            items.where((i) => i.itemType == t).toList(),
+                        itemType: t,
+                      ),
                     ))
                 .toList(),
           );
@@ -117,36 +128,40 @@ class _SavedTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(_icon, size: 56, color: AppColors.textHint),
-            const SizedBox(height: 16),
-            Text('Nothing saved yet',
+      // Wrap the empty state in a scrollable so the parent
+      // RefreshIndicator can still pull-to-refresh.
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+        children: [
+          Icon(_icon, size: 56, color: AppColors.textHint),
+          const SizedBox(height: 16),
+          Center(
+            child: Text('Nothing saved yet',
                 style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'Tap the bookmark icon on any item you want to come back to.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton(
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Tap the bookmark icon on any item you want to come back to.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: OutlinedButton(
               // _route (/courses, /bursaries, /accommodation) sits inside the
               // bottom-nav ShellRoute — go(), not push(), or it shows blank.
               onPressed: () => context.go(_route),
               child: const Text('Browse'),
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(12),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+          12, 12, 12, 96 + MediaQuery.of(context).padding.bottom),
       itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
@@ -169,7 +184,19 @@ class _SavedTab extends ConsumerWidget {
                   const SnackBar(content: Text('Removed from saved')),
                 );
               }
-            } catch (_) {}
+            } catch (_) {
+              // Unsave failed — refresh so the row reappears, and tell
+              // the user instead of silently pretending it worked.
+              ref.invalidate(savedItemsProvider);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Could not remove. Try again.'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            }
           },
           child: ListTile(
             tileColor: Colors.white,
@@ -201,7 +228,7 @@ class _SavedTab extends ConsumerWidget {
                     style: const TextStyle(
                         fontSize: 12, color: AppColors.textSecondary),
                   ),
-                if (item.savedAt != null)
+                if (item.savedAt != null && item.savedAt!.length >= 10)
                   Text(
                     'Saved ${item.savedAt!.substring(0, 10)}',
                     style: const TextStyle(
