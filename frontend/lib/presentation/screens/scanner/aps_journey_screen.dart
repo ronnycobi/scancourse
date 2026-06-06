@@ -109,6 +109,18 @@ class _ApsJourneyScreenState extends ConsumerState<ApsJourneyScreen> {
                     if (planSnap.connectionState != ConnectionState.done) {
                       return const _PlanLoading();
                     }
+                    if (planSnap.hasError) {
+                      // The deterministic plan should always succeed —
+                      // an actual HTTP error here means the request
+                      // itself failed (offline, auth expired, etc).
+                      return _PlanError(onRetry: () {
+                        setState(() {
+                          _planFuture = ref
+                              .read(ocrRepositoryProvider)
+                              .getImprovementPlan();
+                        });
+                      });
+                    }
                     if (!planSnap.hasData) return const SizedBox.shrink();
                     final plan = Map<String, dynamic>.from(
                         (planSnap.data!['plan'] as Map?) ?? const {});
@@ -117,7 +129,13 @@ class _ApsJourneyScreenState extends ConsumerState<ApsJourneyScreen> {
                         ((plan['actions'] as List?) ?? const [])
                             .cast<Map>();
                     if (summary.isEmpty && actions.isEmpty) {
-                      return const SizedBox.shrink();
+                      return _PlanError(onRetry: () {
+                        setState(() {
+                          _planFuture = ref
+                              .read(ocrRepositoryProvider)
+                              .getImprovementPlan();
+                        });
+                      });
                     }
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -696,6 +714,60 @@ class _PlanLoading extends StatelessWidget {
           Text('Loading your next steps…',
               style: TextStyle(
                   fontSize: 13, color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Replaces the silent SizedBox.shrink() that used to render when the
+/// plan endpoint failed or came back empty — gives the student a real
+/// retry instead of an invisible failure.
+class _PlanError extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _PlanError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.psychology_alt_outlined,
+                  size: 18, color: AppColors.textHint),
+              SizedBox(width: 8),
+              Text("Couldn't build your next steps",
+                  style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Check your connection and try again.',
+            style: TextStyle(
+                fontSize: 12.5, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Try again'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 36),
+              ),
+            ),
+          ),
         ],
       ),
     );
