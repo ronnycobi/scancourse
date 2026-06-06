@@ -277,14 +277,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                       onTap: () => context.push('/saved'),
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.auto_awesome, color: AppColors.primary),
-                      title: const Text('AI Motivation Letter'),
-                      subtitle: const Text('Generate a custom application letter',
-                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                      onTap: () => context.push('/motivation-letter'),
-                    ),
                     const Divider(height: 1, indent: 56),
                     // Single entry point to everything else.
                     ListTile(

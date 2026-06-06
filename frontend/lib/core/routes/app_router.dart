@@ -22,7 +22,6 @@ import '../../presentation/screens/accommodation/accommodation_screen.dart';
 import '../../presentation/screens/accommodation/accommodation_detail_screen.dart';
 import '../../presentation/screens/ai_assistant/ai_assistant_screen.dart';
 import '../../presentation/screens/profile/profile_screen.dart';
-import '../../presentation/screens/motivation_letter/motivation_letter_screen.dart';
 import '../../presentation/screens/outcomes/outcomes_screen.dart';
 import '../../presentation/screens/profile/edit_profile_screen.dart';
 import '../../presentation/screens/profile/change_password_screen.dart';
@@ -147,7 +146,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           return LegalScreen(docKey: doc);
         },
       ),
-      GoRoute(path: '/motivation-letter', builder: (_, __) => const MotivationLetterScreen()),
       GoRoute(
         path: '/outcomes/:courseId',
         builder: (_, state) => OutcomesScreen(courseId: int.parse(state.pathParameters['courseId']!)),
