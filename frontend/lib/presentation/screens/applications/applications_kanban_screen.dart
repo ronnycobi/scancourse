@@ -89,7 +89,13 @@ class _ApplicationsKanbanScreenState
       backgroundColor: const Color(0xFFF2F4F7),
       appBar: AppBar(
         title: const Text('My Applications'),
-        leading: BackButton(onPressed: () => context.pop()),
+        leading: BackButton(onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        }),
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0.5,
@@ -134,11 +140,18 @@ class _ApplicationsKanbanScreenState
                 },
                 onTap: (i) {
                   setState(() => _activeColumn = i);
-                  _pages.animateToPage(
-                    i,
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
-                  );
+                  // PageView may not be in the tree yet when the user taps
+                  // a tab during the first-frame load — guard the call so
+                  // the tap doesn't throw "PageController not attached".
+                  if (_pages.hasClients) {
+                    _pages.animateToPage(
+                      i,
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                    );
+                  } else {
+                    _pages.jumpToPage(i);
+                  }
                 },
               ),
             ),
@@ -200,6 +213,19 @@ class _ApplicationsKanbanScreenState
     );
   }
 
+  static const _statusChoices = <(String, String, IconData)>[
+    ('in_progress', 'In progress', Icons.edit_outlined),
+    ('submitted', 'Submitted', Icons.send_outlined),
+    ('under_review', 'Under review', Icons.hourglass_top),
+    ('conditional_offer', 'Conditional offer',
+        Icons.workspace_premium_outlined),
+    ('firm_offer', 'Firm offer', Icons.verified_outlined),
+    ('accepted', 'Accepted', Icons.check_circle_outline),
+    ('waitlisted', 'Waitlisted', Icons.access_time),
+    ('rejected', 'Rejected', Icons.cancel_outlined),
+    ('withdrawn', 'Withdrawn', Icons.exit_to_app_outlined),
+  ];
+
   Future<void> _showChangeStatusSheet(ApplicationModel app) async {
     final picked = await showModalBottomSheet<String>(
       context: context,
@@ -245,19 +271,7 @@ class _ApplicationsKanbanScreenState
                 ),
                 const Divider(height: 1),
                 const SizedBox(height: 4),
-                for (final s in const [
-                  ('in_progress', 'In progress', Icons.edit_outlined),
-                  ('submitted', 'Submitted', Icons.send_outlined),
-                  ('under_review', 'Under review', Icons.hourglass_top),
-                  ('conditional_offer', 'Conditional offer',
-                      Icons.workspace_premium_outlined),
-                  ('firm_offer', 'Firm offer', Icons.verified_outlined),
-                  ('accepted', 'Accepted', Icons.check_circle_outline),
-                  ('waitlisted', 'Waitlisted', Icons.access_time),
-                  ('rejected', 'Rejected', Icons.cancel_outlined),
-                  ('withdrawn', 'Withdrawn',
-                      Icons.exit_to_app_outlined),
-                ])
+                for (final s in _statusChoices)
                   ListTile(
                     leading: Icon(s.$3,
                         color: app.status == s.$1
@@ -291,10 +305,14 @@ class _ApplicationsKanbanScreenState
       ref.invalidate(applicationListProvider);
       ref.invalidate(applicationStatsProvider);
       if (mounted) {
+        final label = _statusChoices
+            .firstWhere((c) => c.$1 == picked,
+                orElse: () => (picked, picked.replaceAll('_', ' '), Icons.flag))
+            .$2;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                'Moved "${app.courseName ?? app.institutionName}" to ${picked.replaceAll('_', ' ')}'),
+                'Moved "${app.courseName ?? app.institutionName}" to $label'),
             backgroundColor: AppColors.eligible,
           ),
         );
@@ -1094,8 +1112,15 @@ class _TrackCourseSheetState extends ConsumerState<_TrackCourseSheet> {
           ),
           data: (course) {
             final offerings = course.offerings ?? const [];
+            // Auto-select the only offering — but defer the setState to
+            // after the frame so we don't mutate during build (Riverpod
+            // and Flutter both warn on synchronous state mutation here).
             if (_offeringIdx == null && offerings.length == 1) {
-              _offeringIdx = 0;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && _offeringIdx == null) {
+                  setState(() => _offeringIdx = 0);
+                }
+              });
             }
             return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
