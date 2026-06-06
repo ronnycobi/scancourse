@@ -168,14 +168,19 @@ class SavedItemSerializer(serializers.ModelSerializer):
     # "Course #42".
     item_name = serializers.SerializerMethodField()
     item_subtitle = serializers.SerializerMethodField()
+    # Light per-type metadata so the Saved screen can sort/section/sweep
+    # without a second roundtrip — currently {deadline: ISO date} for
+    # bursaries; empty for other types.
+    meta = serializers.SerializerMethodField()
 
     class Meta:
         model = SavedItem
         fields = (
             'id', 'item_type', 'item_id', 'saved_at',
-            'item_name', 'item_subtitle',
+            'item_name', 'item_subtitle', 'meta',
         )
-        read_only_fields = ('id', 'saved_at', 'item_name', 'item_subtitle')
+        read_only_fields = (
+            'id', 'saved_at', 'item_name', 'item_subtitle', 'meta')
 
     def _lookup(self, obj):
         """Cached per-request lookup of the underlying object."""
@@ -195,9 +200,15 @@ class SavedItemSerializer(serializers.ModelSerializer):
             elif obj.item_type == 'bursary':
                 from apps.bursaries.models import Bursary
                 row = Bursary.objects.filter(pk=obj.item_id).only(
-                    'id', 'name', 'provider').first()
+                    'id', 'name', 'provider', 'application_deadline').first()
                 if row:
                     ctx[cache_key] = (row.name, row.provider or '')
+                    # Cache the deadline alongside so get_meta is cheap.
+                    self.context.setdefault('_meta', {})[
+                        cache_key] = {
+                        'deadline': row.application_deadline.isoformat()
+                        if row.application_deadline else None,
+                    }
                     return ctx[cache_key]
             elif obj.item_type == 'accommodation':
                 from apps.accommodation.models import Accommodation
@@ -225,6 +236,12 @@ class SavedItemSerializer(serializers.ModelSerializer):
     def get_item_subtitle(self, obj):
         _, subtitle = self._lookup(obj)
         return subtitle
+
+    def get_meta(self, obj):
+        # _lookup populates self.context['_meta'] for types that have any.
+        self._lookup(obj)
+        cache_key = f'_resolved_{obj.item_type}_{obj.item_id}'
+        return self.context.get('_meta', {}).get(cache_key, {})
 
 
 class TokenResponseSerializer(serializers.Serializer):

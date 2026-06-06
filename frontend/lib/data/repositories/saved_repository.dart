@@ -10,6 +10,16 @@ class SavedItemModel {
   final String? itemName;
   /// A small secondary line (e.g. course field, bursary provider, city).
   final String? itemSubtitle;
+  /// Per-type metadata from the backend (currently {deadline: ISO date}
+  /// for bursaries). Empty map if the backend didn't provide any.
+  final Map<String, dynamic> meta;
+
+  /// Bursary deadline parsed from [meta], if present. Null otherwise.
+  DateTime? get bursaryDeadline {
+    final raw = meta['deadline'];
+    if (raw is String && raw.isNotEmpty) return DateTime.tryParse(raw);
+    return null;
+  }
 
   SavedItemModel.fromJson(Map<String, dynamic> j)
       : id = j['id'] as int,
@@ -17,7 +27,10 @@ class SavedItemModel {
         itemId = j['item_id'] as int,
         savedAt = j['saved_at'] as String?,
         itemName = j['item_name'] as String?,
-        itemSubtitle = j['item_subtitle'] as String?;
+        itemSubtitle = j['item_subtitle'] as String?,
+        meta = (j['meta'] is Map)
+            ? Map<String, dynamic>.from(j['meta'] as Map)
+            : const {};
 }
 
 class SavedRepository {
