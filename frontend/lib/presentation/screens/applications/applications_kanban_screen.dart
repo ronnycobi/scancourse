@@ -1062,15 +1062,36 @@ class _TrackCourseSheetState extends ConsumerState<_TrackCourseSheet> {
                         height: 1.35),
                   ),
                   const SizedBox(height: 18),
-                  const Text("Which college are you applying to?",
-                      style: TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w700)),
+                  // Pick the right noun for the institution type — "college"
+                  // for TVET, "university" for unis/UoT, "institution" when
+                  // mixed or unknown.
+                  Builder(builder: (_) {
+                    final types = offerings
+                        .map((o) => o.institution?.institutionType)
+                        .whereType<String>()
+                        .toSet();
+                    String label = 'institution';
+                    if (types.length == 1) {
+                      final t = types.first;
+                      if (t == 'tvet') {
+                        label = 'college';
+                      } else if (t == 'university' ||
+                          t == 'university_of_technology') {
+                        label = 'university';
+                      }
+                    }
+                    return Text(
+                      'Which $label are you applying to?',
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700),
+                    );
+                  }),
                   const SizedBox(height: 6),
                   if (offerings.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Text(
-                        "No colleges listed for this course yet.",
+                        "No institutions listed for this course yet.",
                         style: TextStyle(
                             fontSize: 12, color: AppColors.textHint),
                       ),
