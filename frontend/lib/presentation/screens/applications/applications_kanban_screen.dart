@@ -188,7 +188,7 @@ class _ApplicationsKanbanScreenState
                           ? _ColumnEmptyView(column: col)
                           : ListView.builder(
                               padding: EdgeInsets.fromLTRB(16, 14, 16,
-                                  96 + MediaQuery.of(context).padding.bottom),
+                                  48 + MediaQuery.of(context).padding.bottom),
                               physics:
                                   const AlwaysScrollableScrollPhysics(),
                               itemCount: items.length,

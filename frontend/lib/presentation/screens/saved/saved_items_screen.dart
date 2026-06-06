@@ -161,7 +161,7 @@ class _SavedTab extends ConsumerWidget {
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
-          12, 12, 12, 96 + MediaQuery.of(context).padding.bottom),
+          12, 12, 12, 48 + MediaQuery.of(context).padding.bottom),
       itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
