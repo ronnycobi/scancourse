@@ -406,12 +406,31 @@ class AccommodationDetailScreen extends ConsumerWidget {
                       ),
                     if (email.isNotEmpty) ...[
                       const SizedBox(height: 8),
+                      // Show the address as plain (selectable) text so
+                      // the user can copy/long-press it, then a button
+                      // below to actually launch the email client.
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.email_outlined,
+                              size: 18, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: SelectableText(
+                              email,
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       OutlinedButton.icon(
                         onPressed: () => launchUrl(
                             Uri.parse('mailto:${email.trim()}')),
                         icon: const Icon(Icons.email_outlined),
-                        label: Text('Email $email',
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        label: const Text('Send email'),
                         style: OutlinedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 48)),
                       ),
