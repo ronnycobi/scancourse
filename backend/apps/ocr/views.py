@@ -338,15 +338,21 @@ class ImprovementPlanView(APIView):
 
         # Look at the top APS-gap courses the user has shown interest in
         # (saved or interacted with), capped to keep the prompt small.
+        # min_aps lives on CourseOffering (a course can be offered at many
+        # institutions with different APS requirements) — annotate with
+        # the cheapest entry to get a single number per course.
         from apps.users.models import SavedItem
+        from django.db.models import Min
         saved_ids = list(
             SavedItem.objects
             .filter(user=request.user, item_type='course')
             .values_list('item_id', flat=True)[:8]
         )
-        saved_courses = list(Course.objects.filter(id__in=saved_ids).values(
-            'name', 'min_aps', 'field'
-        )[:8])
+        saved_courses = list(
+            Course.objects.filter(id__in=saved_ids)
+            .annotate(min_aps=Min('offerings__min_aps'))
+            .values('name', 'min_aps', 'field')[:8]
+        )
 
         # If the user hasn't saved anything yet, fall back to the lowest-
         # APS courses in their preferred field so the plan still has real
@@ -354,7 +360,12 @@ class ImprovementPlanView(APIView):
         user = request.user
         if not saved_courses:
             field = (getattr(user, 'preferred_field', '') or '').strip()
-            qs = Course.objects.exclude(min_aps__isnull=True).exclude(min_aps=0)
+            qs = (
+                Course.objects
+                .annotate(min_aps=Min('offerings__min_aps'))
+                .exclude(min_aps__isnull=True)
+                .exclude(min_aps=0)
+            )
             if field:
                 qs = qs.filter(field__icontains=field.split(',')[0])
             saved_courses = list(
