@@ -53,7 +53,13 @@ class _ApsJourneyScreenState extends ConsumerState<ApsJourneyScreen> {
       backgroundColor: const Color(0xFFF2F4F7),
       appBar: AppBar(
         title: const Text('My APS & Next Steps'),
-        leading: BackButton(onPressed: () => context.pop()),
+        leading: BackButton(onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        }),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -89,7 +95,8 @@ class _ApsJourneyScreenState extends ConsumerState<ApsJourneyScreen> {
           return RefreshIndicator(
             onRefresh: () async => _refresh(),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              padding: EdgeInsets.fromLTRB(
+                  16, 16, 16, 48 + MediaQuery.of(context).padding.bottom),
               children: [
                 _HeroCard(currentAps: currentAps, growth: growth),
                 const SizedBox(height: 16),
@@ -239,7 +246,12 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final delta = (growth?['delta'] as int?) ?? 0;
+    // `delta` arrives as int from Django but the JSON decoder can hand
+    // it back as num/double if the backend ever rounds — read as num
+    // first to avoid a cast crash.
+    final delta = (growth?['delta'] as num?)?.toInt() ?? 0;
+    final deltaLabel =
+        (growth?['delta_label'] as String?) ?? '${delta >= 0 ? '+' : ''}$delta';
     final positive = delta > 0;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
@@ -312,7 +324,7 @@ class _HeroCard extends StatelessWidget {
                           size: 14),
                       const SizedBox(width: 4),
                       Text(
-                        growth!['delta_label'] as String,
+                        deltaLabel,
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -902,31 +914,33 @@ class _ActionCard extends StatelessWidget {
 class _EmptyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.show_chart_rounded,
-                size: 64, color: AppColors.textHint),
-            const SizedBox(height: 12),
-            Text('No APS journey yet',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            const Text(
-              'Scan your first report card to start tracking your improvement.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => context.push('/scanner'),
-              child: const Text('Scan Report Card'),
-            ),
-          ],
+    // Scrollable so the parent RefreshIndicator can still trigger a
+    // pull-to-refresh while the screen is empty.
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 32),
+      children: [
+        const Icon(Icons.show_chart_rounded,
+            size: 64, color: AppColors.textHint),
+        const SizedBox(height: 12),
+        Center(
+          child: Text('No APS journey yet',
+              style: Theme.of(context).textTheme.titleMedium),
         ),
-      ),
+        const SizedBox(height: 8),
+        const Text(
+          'Scan your first report card to start tracking your improvement.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: ElevatedButton(
+            onPressed: () => context.push('/scanner'),
+            child: const Text('Scan Report Card'),
+          ),
+        ),
+      ],
     );
   }
 }
