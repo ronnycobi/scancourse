@@ -17,7 +17,13 @@ class ReportsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Reports'),
-        leading: BackButton(onPressed: () => context.pop()),
+        leading: BackButton(onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        }),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -25,7 +31,8 @@ class ReportsScreen extends ConsumerWidget {
           ref.invalidate(latestApsProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(
+              16, 16, 16, 48 + MediaQuery.of(context).padding.bottom),
           children: [
             // Merged APS card — explains the "best marks across reports" logic.
             apsAsync.when(
@@ -156,7 +163,7 @@ class ReportsScreen extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    ...reports.map((r) => _ReportCard(report: r)).toList(),
+                    ...reports.map((r) => _ReportCard(report: r)),
                   ],
                 );
               },
@@ -176,6 +183,8 @@ class _ReportCard extends ConsumerWidget {
     switch (report.status) {
       case 'processing':
         return 'Processing…';
+      case 'pending':
+        return 'Queued';
       case 'failed':
         return 'Failed';
       case 'verified':
@@ -183,7 +192,10 @@ class _ReportCard extends ConsumerWidget {
       case 'completed':
         return 'Ready';
       default:
-        return report.status;
+        // Capitalise the raw status as a graceful fallback for any
+        // future state we haven't mapped yet.
+        final s = report.status;
+        return s.isEmpty ? '—' : s[0].toUpperCase() + s.substring(1);
     }
   }
 
@@ -192,9 +204,13 @@ class _ReportCard extends ConsumerWidget {
       case 'failed':
         return AppColors.error;
       case 'processing':
+      case 'pending':
         return AppColors.accent;
-      default:
+      case 'verified':
+      case 'completed':
         return AppColors.eligible;
+      default:
+        return AppColors.textHint;
     }
   }
 
@@ -286,15 +302,21 @@ class _ReportCard extends ConsumerWidget {
                     Text(
                       report.schoolName?.isNotEmpty == true
                           ? report.schoolName!
-                          : 'Report uploaded ${_formatDate()}',
+                          // Title falls back to a friendlier label —
+                          // the date already appears in the subtitle so
+                          // don't repeat it.
+                          : 'Uploaded report',
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w700),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      '${_formatDate()}  •  $nSubjects subjects'
-                      '${aps > 0 ? "  •  APS $aps" : ""}',
+                      [
+                        _formatDate(),
+                        '$nSubjects subjects',
+                        if (aps > 0) 'APS $aps',
+                      ].where((s) => s.isNotEmpty).join('  •  '),
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.textSecondary),
                     ),

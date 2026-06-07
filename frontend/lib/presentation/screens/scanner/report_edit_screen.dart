@@ -102,6 +102,10 @@ class _ReportEditScreenState extends ConsumerState<ReportEditScreen> {
       }
     }
 
+    // Drop focus so the keyboard collapses while we save — gives the
+    // success snackbar room and prevents an accidental re-edit while
+    // the request is in flight.
+    FocusScope.of(context).unfocus();
     setState(() => _saving = true);
     try {
       final payload = _rows
@@ -146,7 +150,13 @@ class _ReportEditScreenState extends ConsumerState<ReportEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Report'),
-        leading: BackButton(onPressed: () => context.pop()),
+        leading: BackButton(onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/reports');
+          }
+        }),
       ),
       body: SafeArea(
         child: _loading
