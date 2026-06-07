@@ -21,6 +21,51 @@ bool _isOnCampusRes(Map<String, dynamic> a) {
   return a['nearby_institution'] != null && d != null && d <= 0.5;
 }
 
+/// Friendly "Cape Town, Western Cape" line that copes with either field
+/// being missing — the old code rendered "Cape Town, " when province
+/// was null and rendered nothing at all when city was null.
+String? _locationLine(Map<String, dynamic> a) {
+  final city = (a['city'] as String?)?.trim();
+  final provinceRaw = (a['province'] as String?)?.trim();
+  final province = provinceRaw == null || provinceRaw.isEmpty
+      ? null
+      : (AppConstants.provinces[provinceRaw] ?? provinceRaw);
+  final parts = [
+    if (city != null && city.isNotEmpty) city,
+    if (province != null && province.isNotEmpty) province,
+  ];
+  return parts.isEmpty ? null : parts.join(', ');
+}
+
+/// Title-case a snake_case room type like "single_room" → "Single Room".
+String _prettyRoom(String raw) => raw
+    .split('_')
+    .where((w) => w.isNotEmpty)
+    .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
+    .join(' ');
+
+/// Format an integer rand price with a thin space thousands separator —
+/// "R12 500" reads cleaner than "R12500".
+String _formatRand(num value) {
+  final whole = value.round().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < whole.length; i++) {
+    if (i > 0 && (whole.length - i) % 3 == 0) buf.write(' ');
+    buf.write(whole[i]);
+  }
+  return 'R$buf';
+}
+
+/// Prepend a scheme if the user/database dropped one — "scancourse.co.za"
+/// alone would fail to launch.
+Uri? _safeWebUri(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return null;
+  final withScheme =
+      trimmed.startsWith('http') ? trimmed : 'https://$trimmed';
+  return Uri.tryParse(withScheme);
+}
+
 IconData _roomIcon(String? roomType) {
   final t = (roomType ?? '').toLowerCase();
   if (t.contains('single')) return Icons.single_bed_outlined;
@@ -101,11 +146,15 @@ class AccommodationDetailScreen extends ConsumerWidget {
             ),
           ),
         ),
-        data: (a) => SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        data: (a) => RefreshIndicator(
+          onRefresh: () async =>
+              ref.invalidate(accommodationDetailProvider(id)),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // ── Header (matches the list card's look) ────────────────
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,9 +181,9 @@ class AccommodationDetailScreen extends ConsumerWidget {
                         Text((a['name'] as String?) ?? 'Accommodation',
                             style: Theme.of(context).textTheme.titleLarge),
                         const SizedBox(height: 2),
-                        if (a['city'] != null)
+                        if (_locationLine(a) != null)
                           Text(
-                            '${a['city']}, ${AppConstants.provinces[a['province']] ?? a['province'] ?? ''}',
+                            _locationLine(a)!,
                             style: const TextStyle(
                                 fontSize: 13,
                                 color: AppColors.textSecondary),
@@ -148,7 +197,9 @@ class AccommodationDetailScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          'R${(double.tryParse(a['price_per_month'].toString()) ?? 0).toStringAsFixed(0)}',
+                          _formatRand(
+                              double.tryParse(a['price_per_month'].toString()) ??
+                                  0),
                           style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
@@ -225,10 +276,14 @@ class AccommodationDetailScreen extends ConsumerWidget {
                 _row(Icons.location_on_outlined, a['address'].toString()),
               if (a['room_type'] != null)
                 _row(Icons.bed_outlined,
-                    a['room_type'].toString().replaceAll('_', ' ')),
+                    _prettyRoom(a['room_type'].toString())),
               if (a['distance_km'] != null)
-                _row(Icons.directions_walk,
-                    '${a['distance_km']} km from campus'),
+                _row(
+                  Icons.directions_walk,
+                  // Format to one decimal so "1.5000" doesn't reach the
+                  // user, and round 0.x to 1 dp not 0.
+                  '${(double.tryParse(a['distance_km'].toString()) ?? 0).toStringAsFixed(1)} km from campus',
+                ),
 
               // Features
               if ((a['features'] as List?)?.isNotEmpty == true) ...[
@@ -275,22 +330,29 @@ class AccommodationDetailScreen extends ConsumerWidget {
                   a['contact_name'].toString().isNotEmpty)
                 _row(Icons.person_outline, a['contact_name'].toString()),
               const SizedBox(height: 8),
-              if (a['contact_phone'] != null)
+              if (a['contact_phone'] != null &&
+                  a['contact_phone'].toString().isNotEmpty)
                 ElevatedButton.icon(
-                  onPressed: () => launchUrl(
-                      Uri.parse('tel:${a['contact_phone']}')),
+                  // tel: URIs need spaces stripped on some Android
+                  // dialers — and we keep the user-friendly number on
+                  // the button label.
+                  onPressed: () => launchUrl(Uri.parse(
+                      'tel:${a['contact_phone'].toString().replaceAll(RegExp(r"\s+"), "")}')),
                   icon: const Icon(Icons.phone),
-                  label: Text('Call ${a['contact_phone']}'),
+                  label: Text('Call ${a['contact_phone']}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 48)),
                 ),
-              if (a['contact_email'] != null) ...[
+              if (a['contact_email'] != null &&
+                  a['contact_email'].toString().isNotEmpty) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: () => launchUrl(
-                      Uri.parse('mailto:${a['contact_email']}')),
+                      Uri.parse('mailto:${a['contact_email'].toString().trim()}')),
                   icon: const Icon(Icons.email_outlined),
-                  label: Text('Email ${a['contact_email']}'),
+                  label: Text('Email ${a['contact_email']}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   style: OutlinedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 48)),
                 ),
@@ -299,16 +361,27 @@ class AccommodationDetailScreen extends ConsumerWidget {
                   a['website'].toString().isNotEmpty) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: () => launchUrl(
-                      Uri.parse(a['website'].toString()),
-                      mode: LaunchMode.externalApplication),
+                  onPressed: () async {
+                    final uri = _safeWebUri(a['website'].toString());
+                    if (uri == null) return;
+                    final ok = await launchUrl(uri,
+                        mode: LaunchMode.externalApplication);
+                    if (!ok && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text("Couldn't open the website")),
+                      );
+                    }
+                  },
                   icon: const Icon(Icons.language_outlined),
                   label: const Text('Visit website'),
                   style: OutlinedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 48)),
                 ),
               ],
+              SizedBox(height: 32 + MediaQuery.of(context).padding.bottom),
             ],
+          ),
           ),
         ),
       ),
