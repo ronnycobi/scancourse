@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/aps_provider.dart';
 
@@ -198,6 +199,9 @@ class _ApsJourneyScreenState extends ConsumerState<ApsJourneyScreen> {
                             description:
                                 (a['description'] as String?) ?? '',
                             impact: (a['impact'] as String?) ?? '',
+                            ctaLabel: a['cta_label'] as String?,
+                            ctaUrl: a['cta_url'] as String?,
+                            note: a['note'] as String?,
                           );
                         }),
                         if (actions.isNotEmpty)
@@ -827,6 +831,13 @@ class _ActionCard extends StatelessWidget {
   final String title;
   final String description;
   final String impact;
+  /// Optional deep-link CTA — currently used to send the user to the
+  /// NSFAS portal on the "Bursaries to chase" action.
+  final String? ctaLabel;
+  final String? ctaUrl;
+  /// Optional supplementary line under the description (e.g. "Opens 1
+  /// September 2026" when NSFAS isn't accepting applications yet).
+  final String? note;
 
   const _ActionCard({
     required this.index,
@@ -835,7 +846,23 @@ class _ActionCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.impact,
+    this.ctaLabel,
+    this.ctaUrl,
+    this.note,
   });
+
+  Future<void> _openCta(BuildContext context) async {
+    final url = ctaUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Couldn't open $url")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -901,6 +928,55 @@ class _ActionCard extends StatelessWidget {
                   fontSize: 13,
                   color: AppColors.textSecondary,
                   height: 1.5),
+            ),
+          ],
+          if (note != null && note!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.event_outlined, size: 12, color: color),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      note!,
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: color),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (ctaLabel != null &&
+              ctaLabel!.isNotEmpty &&
+              ctaUrl != null &&
+              ctaUrl!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: () => _openCta(context),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: Text(ctaLabel!),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(0, 38),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
             ),
           ],
         ],

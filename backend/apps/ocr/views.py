@@ -496,6 +496,54 @@ def _qualifying_courses(saved_courses, total_aps) -> list[dict]:
     return qualify
 
 
+def _nsfas_window():
+    """Returns NSFAS application-window status for today's date.
+
+    NSFAS applications for academic year Y typically open in early
+    September of year Y-1 and close end of January of year Y. The
+    window straddles December 31 so the simplest correct logic is:
+      - If today is between Sep 1 and Dec 31 — applications for NEXT
+        calendar year are OPEN.
+      - If today is between Jan 1 and Jan 31 — applications for THIS
+        calendar year are STILL OPEN (closing soon).
+      - Otherwise (Feb-Aug) — CLOSED, next window opens Sep 1 same year.
+
+    Returned dict has stable keys consumed by the frontend:
+        url:         landing page to send the user to
+        status:      'open' | 'closed' | 'closing_soon'
+        message:     short human note for the action card
+        opens_label: e.g. 'Opens 1 September 2026' (or None when open)
+    """
+    from datetime import date as _date
+    today = _date.today()
+    url = 'https://my.nsfas.org.za/'
+    if today.month >= 9:
+        next_year = today.year + 1
+        return {
+            'url': url,
+            'status': 'open',
+            'message': f'Applications for {next_year} are open now — apply at nsfas.org.za.',
+            'opens_label': None,
+        }
+    if today.month == 1:
+        return {
+            'url': url,
+            'status': 'closing_soon',
+            'message': f'Applications for {today.year} close end of January — apply this week.',
+            'opens_label': None,
+        }
+    # Feb–Aug: closed, next window opens 1 September this year.
+    return {
+        'url': url,
+        'status': 'closed',
+        'message': (
+            f'NSFAS applications for {today.year + 1} open 1 September '
+            f'{today.year}. Bookmark the link and set a reminder.'
+        ),
+        'opens_label': f'Opens 1 September {today.year}',
+    }
+
+
 def _closest_stretch_course(saved_courses, total_aps) -> dict | None:
     """The saved course just out of reach — smallest positive APS gap."""
     best = None
@@ -556,18 +604,27 @@ def _deterministic_plan(
                 'impact': 'Save courses to start',
             })
 
-        # Action 2 — Bursaries (NSFAS-first).
-        nsfas_msg = (
-            'NSFAS funds tuition + residence for SA citizens with household income below R350k. '
-            'Apply at nsfas.org.za as soon as your matric results are out.'
+        # Action 2 — Bursaries (NSFAS-first). Inject the live application
+        # window so we don't tell the user to "apply now" when NSFAS is
+        # closed, and surface a direct CTA button to the portal.
+        nsfas = _nsfas_window()
+        nsfas_intro = (
+            'NSFAS funds tuition + residence for SA citizens with household income below R350k.'
+        )
+        extra = (
+            f' Also search private bursaries in {preferred_field.split(",")[0].strip()}.'
+            if preferred_field else ''
         )
         actions.append({
             'title': 'Bursaries to chase',
-            'description': nsfas_msg + (
-                f' Also search private bursaries in {preferred_field.split(",")[0].strip()}.'
-                if preferred_field else ''
-            ),
+            'description': f'{nsfas_intro} {nsfas["message"]}{extra}',
             'impact': 'Funding first',
+            'cta_label': (
+                'Apply on NSFAS' if nsfas['status'] != 'closed'
+                else 'Open NSFAS portal'
+            ),
+            'cta_url': nsfas['url'],
+            'note': nsfas['opens_label'],
         })
 
         # Action 3 — Backup pathway (diploma / TVET / supplementary).
@@ -670,16 +727,21 @@ def _deterministic_plan(
             'Two well-targeted subjects could change everything.'
         )
 
+    out_actions = []
+    for a in actions[:3]:
+        row = {
+            'title': a['title'][:60],
+            'description': a['description'][:280],
+            'impact': a['impact'][:80],
+        }
+        for k in ('cta_label', 'cta_url', 'note'):
+            v = a.get(k)
+            if v:
+                row[k] = v
+        out_actions.append(row)
     return {
         'summary': summary[:280],
-        'actions': [
-            {
-                'title': a['title'][:60],
-                'description': a['description'][:280],
-                'impact': a['impact'][:80],
-            }
-            for a in actions[:3]
-        ],
+        'actions': out_actions,
     }
 
 
@@ -726,12 +788,18 @@ def _polish_plan_with_ai(
         original_actions = plan['actions']
         for i, a in enumerate((data.get('actions') or [])[:len(original_actions)]):
             orig = original_actions[i]
-            polished_actions.append({
-                # Keep titles + impact verbatim — those are facts.
+            # Keep titles + impact verbatim — those are facts. Also keep
+            # any CTA/note metadata the deterministic plan attached
+            # (the AI shouldn't invent links).
+            polished = {
                 'title': orig['title'],
                 'description': str(a.get('description') or orig['description'])[:280],
                 'impact': orig['impact'],
-            })
+            }
+            for k in ('cta_label', 'cta_url', 'note'):
+                if orig.get(k):
+                    polished[k] = orig[k]
+            polished_actions.append(polished)
         # If the LLM dropped actions, top them up from the original.
         for j in range(len(polished_actions), len(original_actions)):
             polished_actions.append(original_actions[j])
