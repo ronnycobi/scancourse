@@ -341,6 +341,9 @@ class AccommodationDetailScreen extends ConsumerWidget {
                 final contactName =
                     (a['contact_name'] as String?)?.trim() ?? '';
 
+                // Only flag "Via housing office" when phone or email
+                // genuinely came from the institution fallback —
+                // visiting the website isn't really "via" anyone.
                 final usingFallback = {
                   if (phone.isNotEmpty &&
                       ((a['contact_phone'] as String?)?.trim() ?? '').isEmpty)
@@ -348,9 +351,6 @@ class AccommodationDetailScreen extends ConsumerWidget {
                   if (email.isNotEmpty &&
                       ((a['contact_email'] as String?)?.trim() ?? '').isEmpty)
                     'email',
-                  if (website.isNotEmpty &&
-                      ((a['website'] as String?)?.trim() ?? '').isEmpty)
-                    'website',
                 };
                 final hasAny = phone.isNotEmpty ||
                     email.isNotEmpty ||
