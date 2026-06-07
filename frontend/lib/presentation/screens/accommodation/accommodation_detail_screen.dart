@@ -322,63 +322,125 @@ class AccommodationDetailScreen extends ConsumerWidget {
                 Text(a['description'].toString()),
               ],
 
-              const SizedBox(height: 20),
-              Text('Contact',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              if (a['contact_name'] != null &&
-                  a['contact_name'].toString().isNotEmpty)
-                _row(Icons.person_outline, a['contact_name'].toString()),
-              const SizedBox(height: 8),
-              if (a['contact_phone'] != null &&
-                  a['contact_phone'].toString().isNotEmpty)
-                ElevatedButton.icon(
-                  // tel: URIs need spaces stripped on some Android
-                  // dialers — and we keep the user-friendly number on
-                  // the button label.
-                  onPressed: () => launchUrl(Uri.parse(
-                      'tel:${a['contact_phone'].toString().replaceAll(RegExp(r"\s+"), "")}')),
-                  icon: const Icon(Icons.phone),
-                  label: Text('Call ${a['contact_phone']}',
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48)),
-                ),
-              if (a['contact_email'] != null &&
-                  a['contact_email'].toString().isNotEmpty) ...[
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => launchUrl(
-                      Uri.parse('mailto:${a['contact_email'].toString().trim()}')),
-                  icon: const Icon(Icons.email_outlined),
-                  label: Text('Email ${a['contact_email']}',
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48)),
-                ),
-              ],
-              if (a['website'] != null &&
-                  a['website'].toString().isNotEmpty) ...[
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final uri = _safeWebUri(a['website'].toString());
-                    if (uri == null) return;
-                    final ok = await launchUrl(uri,
-                        mode: LaunchMode.externalApplication);
-                    if (!ok && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text("Couldn't open the website")),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.language_outlined),
-                  label: const Text('Visit website'),
-                  style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 48)),
-                ),
-              ],
+              // ── Contact ─────────────────────────────────────────────
+              // Pick the first non-empty value between the residence's
+              // own listing and the linked institution's housing office,
+              // so a blank scraped record falls back to the uni's
+              // contact details instead of leaving the user stranded.
+              Builder(builder: (_) {
+                String pick(String ownKey, String fallbackKey) {
+                  final own = (a[ownKey] as String?)?.trim() ?? '';
+                  if (own.isNotEmpty) return own;
+                  final fb = (a[fallbackKey] as String?)?.trim() ?? '';
+                  return fb;
+                }
+
+                final phone = pick('contact_phone', 'nearby_institution_phone');
+                final email = pick('contact_email', 'nearby_institution_email');
+                final website = pick('website', 'nearby_institution_website');
+                final contactName =
+                    (a['contact_name'] as String?)?.trim() ?? '';
+
+                final usingFallback = {
+                  if (phone.isNotEmpty &&
+                      ((a['contact_phone'] as String?)?.trim() ?? '').isEmpty)
+                    'phone',
+                  if (email.isNotEmpty &&
+                      ((a['contact_email'] as String?)?.trim() ?? '').isEmpty)
+                    'email',
+                  if (website.isNotEmpty &&
+                      ((a['website'] as String?)?.trim() ?? '').isEmpty)
+                    'website',
+                };
+                final hasAny = phone.isNotEmpty ||
+                    email.isNotEmpty ||
+                    website.isNotEmpty ||
+                    contactName.isNotEmpty;
+                if (!hasAny) {
+                  // Nothing useful to show — hide the whole section
+                  // rather than leaving a lonely "Contact" header.
+                  return const SizedBox.shrink();
+                }
+                final institution =
+                    (a['nearby_institution_name'] as String?) ?? '';
+                final fallbackBadge = usingFallback.isEmpty || institution.isEmpty
+                    ? null
+                    : 'Via $institution housing office';
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    Text('Contact',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    if (fallbackBadge != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.info_outline,
+                              size: 14, color: AppColors.textHint),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              fallbackBadge,
+                              style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.textHint),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    if (contactName.isNotEmpty)
+                      _row(Icons.person_outline, contactName),
+                    if (contactName.isNotEmpty) const SizedBox(height: 8),
+                    if (phone.isNotEmpty)
+                      ElevatedButton.icon(
+                        onPressed: () => launchUrl(Uri.parse(
+                            'tel:${phone.replaceAll(RegExp(r"\s+"), "")}')),
+                        icon: const Icon(Icons.phone),
+                        label: Text('Call $phone',
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48)),
+                      ),
+                    if (email.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => launchUrl(
+                            Uri.parse('mailto:${email.trim()}')),
+                        icon: const Icon(Icons.email_outlined),
+                        label: Text('Email $email',
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48)),
+                      ),
+                    ],
+                    if (website.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final uri = _safeWebUri(website);
+                          if (uri == null) return;
+                          final ok = await launchUrl(uri,
+                              mode: LaunchMode.externalApplication);
+                          if (!ok && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text("Couldn't open the website")),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.language_outlined),
+                        label: const Text('Visit website'),
+                        style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48)),
+                      ),
+                    ],
+                  ],
+                );
+              }),
               SizedBox(height: 32 + MediaQuery.of(context).padding.bottom),
             ],
           ),
