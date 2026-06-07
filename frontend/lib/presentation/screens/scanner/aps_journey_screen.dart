@@ -657,13 +657,17 @@ class _CtaCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          // The improvement plan is already on this screen (Next Steps
+          // above). Drop the duplicate "AI plan" button and surface a
+          // path that actually does something different — browsing
+          // courses, which feeds the plan with saved programmes.
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => context.push('/improvement-plan'),
-                  icon: const Icon(Icons.psychology_alt_outlined, size: 16),
-                  label: const Text('AI plan'),
+                  onPressed: () => context.go('/courses'),
+                  icon: const Icon(Icons.school_outlined, size: 16),
+                  label: const Text('Browse courses'),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(0, 44),
                   ),
