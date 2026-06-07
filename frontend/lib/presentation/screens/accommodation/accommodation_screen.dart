@@ -22,21 +22,26 @@ class AccommodationItem {
   final List images;
 
   AccommodationItem.fromJson(Map<String, dynamic> j)
-      : id = j['id'],
-        name = j['name'],
-        city = j['city'],
-        province = j['province'],
-        roomType = j['room_type'],
-        pricePerMonth = double.tryParse(j['price_per_month'].toString()) ?? 0,
-        nsfasAccredited = j['nsfas_accredited'] ?? false,
-        distanceKm = j['distance_km'] != null ? double.tryParse(j['distance_km'].toString()) : null,
-        contactPhone = j['contact_phone'],
-        nearbyInstitutionId = j['nearby_institution'] as int?,
+      // Defensive defaults so a sparse scraped record (null name/city/etc.)
+      // doesn't crash the whole list page with a Null-is-not-String cast.
+      : id = (j['id'] as num).toInt(),
+        name = (j['name'] as String?)?.trim() ?? 'Accommodation',
+        city = (j['city'] as String?)?.trim() ?? '',
+        province = (j['province'] as String?)?.trim() ?? '',
+        roomType = (j['room_type'] as String?) ?? '',
+        pricePerMonth =
+            double.tryParse((j['price_per_month'] ?? '').toString()) ?? 0,
+        nsfasAccredited = j['nsfas_accredited'] == true,
+        distanceKm = j['distance_km'] == null
+            ? null
+            : double.tryParse(j['distance_km'].toString()),
+        contactPhone = j['contact_phone'] as String?,
+        nearbyInstitutionId = (j['nearby_institution'] as num?)?.toInt(),
         nearbyInstitution = j['nearby_institution_name'] as String?,
-        features = ((j['features'] as List?) ?? [])
+        features = ((j['features'] as List?) ?? const [])
             .map((e) => e.toString())
             .toList(),
-        images = j['images'] ?? [];
+        images = (j['images'] as List?) ?? const [];
 }
 
 /// Distinct universities that actually have accommodation listed — powers
@@ -246,34 +251,45 @@ class _AccommodationScreenState extends ConsumerState<AccommodationScreen> {
           ),
           Expanded(
             child: accAsync.when(
-              data: (items) => items.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.home_work_outlined, size: 64, color: AppColors.textHint),
-                          const SizedBox(height: 16),
-                          Text('No accommodation found', style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 8),
-                          Text('Try adjusting your filters', style: Theme.of(context).textTheme.bodySmall),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: () async =>
-                          ref.invalidate(accommodationProvider(paramStr)),
-                      child: ListView.separated(
+              data: (items) => RefreshIndicator(
+                onRefresh: () async =>
+                    ref.invalidate(accommodationProvider(paramStr)),
+                child: items.isEmpty
+                    // Empty state is now scrollable so the parent
+                    // RefreshIndicator still triggers a pull-down.
+                    ? ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 80, horizontal: 24),
+                        children: [
+                          const Icon(Icons.home_work_outlined,
+                              size: 64, color: AppColors.textHint),
+                          const SizedBox(height: 16),
+                          Center(
+                            child: Text('No accommodation found',
+                                style: Theme.of(context).textTheme.titleMedium),
+                          ),
+                          const SizedBox(height: 8),
+                          Center(
+                            child: Text('Try adjusting your filters',
+                                style: Theme.of(context).textTheme.bodySmall),
+                          ),
+                        ],
+                      )
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(16, 0, 16,
+                            48 + MediaQuery.of(context).padding.bottom),
                         itemCount: items.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 12),
                         itemBuilder: (context, i) => _AccommodationCard(
                           item: items[i],
                           onTap: () =>
                               context.push('/accommodation/${items[i].id}'),
                         ),
                       ),
-                    ),
+              ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
                 child: Padding(
@@ -303,6 +319,41 @@ class _AccommodationScreenState extends ConsumerState<AccommodationScreen> {
   }
 }
 
+/// Title-case a snake_case room type for chip labels — "single_room" →
+/// "Single Room". Replaces the previous all-caps shouting label.
+String _prettyRoom(String raw) {
+  if (raw.isEmpty) return 'Room';
+  return raw
+      .split('_')
+      .where((w) => w.isNotEmpty)
+      .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
+      .join(' ');
+}
+
+/// "City, Province" line that copes with either field being missing —
+/// returns null when neither is present so the row can be hidden.
+String? _locationLineParts(String city, String province) {
+  final p = province.isEmpty
+      ? ''
+      : (AppConstants.provinces[province] ?? province);
+  final parts = [
+    if (city.isNotEmpty) city,
+    if (p.isNotEmpty) p,
+  ];
+  return parts.isEmpty ? null : parts.join(', ');
+}
+
+/// "R12 500" with a thin-space thousands separator.
+String _formatRand(num value) {
+  final whole = value.round().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < whole.length; i++) {
+    if (i > 0 && (whole.length - i) % 3 == 0) buf.write(' ');
+    buf.write(whole[i]);
+  }
+  return 'R$buf';
+}
+
 class _AccommodationCard extends StatelessWidget {
   final AccommodationItem item;
   final VoidCallback onTap;
@@ -320,7 +371,8 @@ class _AccommodationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roomLabel = item.roomType.replaceAll('_', ' ').toUpperCase();
+    final roomLabel = _prettyRoom(item.roomType);
+    final locationLine = _locationLineParts(item.city, item.province);
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
@@ -377,24 +429,26 @@ class _AccommodationCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            const Icon(Icons.place_outlined,
-                                size: 13, color: AppColors.textSecondary),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                '${item.city}, ${AppConstants.provinces[item.province] ?? item.province}',
-                                style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                        if (locationLine != null) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              const Icon(Icons.place_outlined,
+                                  size: 13, color: AppColors.textSecondary),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  locationLine,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                         if (item.nearbyInstitution != null) ...[
                           const SizedBox(height: 2),
                           Row(
@@ -428,7 +482,9 @@ class _AccommodationCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'R${item.pricePerMonth.toStringAsFixed(0)}',
+                        item.pricePerMonth > 0
+                            ? _formatRand(item.pricePerMonth)
+                            : '—',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
@@ -436,9 +492,10 @@ class _AccommodationCard extends StatelessWidget {
                           height: 1,
                         ),
                       ),
-                      const Text('per month',
-                          style: TextStyle(
-                              fontSize: 10, color: AppColors.textHint)),
+                      if (item.pricePerMonth > 0)
+                        const Text('per month',
+                            style: TextStyle(
+                                fontSize: 10, color: AppColors.textHint)),
                       BookmarkButton(
                         itemType: 'accommodation',
                         itemId: item.id,
