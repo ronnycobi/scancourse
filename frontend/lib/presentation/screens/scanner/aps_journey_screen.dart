@@ -109,17 +109,21 @@ class _ApsJourneyScreenState extends ConsumerState<ApsJourneyScreen> {
                     if (planSnap.connectionState != ConnectionState.done) {
                       return const _PlanLoading();
                     }
-                    if (planSnap.hasError) {
-                      // The deterministic plan should always succeed —
-                      // an actual HTTP error here means the request
-                      // itself failed (offline, auth expired, etc).
-                      return _PlanError(onRetry: () {
-                        setState(() {
-                          _planFuture = ref
-                              .read(ocrRepositoryProvider)
-                              .getImprovementPlan();
-                        });
+                    void retry() {
+                      setState(() {
+                        _planFuture = ref
+                            .read(ocrRepositoryProvider)
+                            .getImprovementPlan();
                       });
+                    }
+                    if (planSnap.hasError) {
+                      // Surface the underlying message — when the user
+                      // reports "still not working" we need to know if
+                      // it's auth, network, or a 500 to fix it.
+                      return _PlanError(
+                        onRetry: retry,
+                        errorText: planSnap.error?.toString(),
+                      );
                     }
                     if (!planSnap.hasData) return const SizedBox.shrink();
                     final plan = Map<String, dynamic>.from(
@@ -129,13 +133,10 @@ class _ApsJourneyScreenState extends ConsumerState<ApsJourneyScreen> {
                         ((plan['actions'] as List?) ?? const [])
                             .cast<Map>();
                     if (summary.isEmpty && actions.isEmpty) {
-                      return _PlanError(onRetry: () {
-                        setState(() {
-                          _planFuture = ref
-                              .read(ocrRepositoryProvider)
-                              .getImprovementPlan();
-                        });
-                      });
+                      return _PlanError(
+                        onRetry: retry,
+                        errorText: 'Empty plan received',
+                      );
                     }
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -725,7 +726,24 @@ class _PlanLoading extends StatelessWidget {
 /// retry instead of an invisible failure.
 class _PlanError extends StatelessWidget {
   final VoidCallback onRetry;
-  const _PlanError({required this.onRetry});
+  final String? errorText;
+  const _PlanError({required this.onRetry, this.errorText});
+
+  String get _friendlyHint {
+    final e = (errorText ?? '').toLowerCase();
+    if (e.contains('401') || e.contains('unauthor')) {
+      return 'Your session may have expired. Log out and back in.';
+    }
+    if (e.contains('socket') ||
+        e.contains('timeout') ||
+        e.contains('connection')) {
+      return 'Check your internet connection and try again.';
+    }
+    if (e.contains('500') || e.contains('502') || e.contains('503')) {
+      return 'Our coach is briefly unavailable — try again in a moment.';
+    }
+    return 'Try again, or pull down to refresh.';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -751,11 +769,23 @@ class _PlanError extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Check your connection and try again.',
-            style: TextStyle(
+          Text(
+            _friendlyHint,
+            style: const TextStyle(
                 fontSize: 12.5, color: AppColors.textSecondary),
           ),
+          if (errorText != null && errorText!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              errorText!,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 10.5,
+                  color: AppColors.textHint,
+                  fontFamily: 'monospace'),
+            ),
+          ],
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
