@@ -50,25 +50,59 @@ PROMPT_TEXT = (
     "and percentages. Don't summarise — output the raw text exactly as it appears."
 )
 
-PROMPT_STRUCTURED = '''You are reading a South African Grade 11 or 12 school report card.
+PROMPT_STRUCTURED = '''You are reading a South African school report card (DBE NSC or IEB). Extract every academic subject and its final mark.
 
-Extract every subject and its final mark. Return ONLY valid JSON in this exact shape:
+Return ONLY valid JSON in this exact shape:
 
 {
   "subjects": [
-    {"name": "<subject name as written on the report>", "mark": <integer 0-100>}
+    {"name": "<full subject name>", "mark": <integer 0-100>, "confidence": "<high|medium|low>"}
   ],
   "school": "<school name if visible, else null>",
-  "grade": "<grade_10 | grade_11 | grade_12 | other, based on the report>"
+  "grade": "<grade_10 | grade_11 | grade_12 | other>",
+  "board": "<DBE | IEB | unknown>"
 }
 
-Rules:
-- "mark" must be an integer between 0 and 100. Convert any "63%" → 63.
-- If a subject appears multiple times (term 1, term 2, etc.), use the FINAL / FINAL AVERAGE / YEAR MARK.
-- Include Life Orientation if present.
-- Ignore class teachers' comments and signatures.
-- Do not include subjects that are not academic (e.g. attendance, conduct).
-- Output ONLY the JSON — no markdown fences, no prose before or after.
+CRITICAL RULES — read carefully:
+
+1. WHICH MARK TO USE
+   - Reports often show multiple columns: Term 1, Term 2, Term 3, Term 4, Final/Year/Promotion/Average.
+   - You MUST pick the FINAL one. Priority order: "Promotion Mark" > "Final Mark" > "Year Mark" > "Year Average" > "Final Average" > the LAST term column.
+   - NEVER return a single term's mark when a final/year mark is present.
+   - If only one mark column exists, use it.
+
+2. MARK FORMAT
+   - Always an INTEGER 0-100. Convert "75%" → 75, "75/100" → 75.
+   - If the report uses NSC achievement levels instead of percentages, convert by lower bound: L7 → 80, L6 → 70, L5 → 60, L4 → 50, L3 → 40, L2 → 30, L1 → 20.
+   - If you genuinely cannot read the mark, OMIT THE ROW. Do not guess.
+
+3. SUBJECT NAMES — use the FULL canonical name, not the abbreviation
+   - "Mathematics" (not "Maths", "Math")
+   - "Mathematical Literacy" (not "Math Lit", "Maths Lit")
+   - Languages: always keep the LEVEL — "English Home Language", "English First Additional Language", "Afrikaans Home Language", "isiZulu First Additional Language", etc. Never just "English".
+   - "Physical Sciences" (not "Physics", "Phys Sci")
+   - "Life Sciences" (not "Biology", "Bio")
+   - "Computer Applications Technology" (not "CAT")
+   - "Information Technology" (not "IT")
+   - "Business Studies", "Accounting", "Economics", "Geography", "History" — full names.
+   - IEB Advanced Programme subjects: keep the "Advanced Programme " prefix (e.g. "Advanced Programme Mathematics").
+
+4. INCLUDE
+   - All academic subjects, INCLUDING Life Orientation.
+   - Advanced Programme subjects (IEB only).
+
+5. EXCLUDE
+   - Attendance, conduct, effort, application, participation, extra-murals.
+   - Comments, signatures, principal/teacher remarks.
+   - Aggregate rows: "Total", "Average", "Overall", "Achievement Level".
+   - Foundation-phase summary blocks ("Languages", "Mathematics", "Life Skills" as broad categories on a primary report).
+
+6. CONFIDENCE
+   - "high" — row is crisp, name and mark unambiguous.
+   - "medium" — name or mark partially obscured but you're 90%+ certain.
+   - "low" — you're guessing because of blur/glare/handwriting. Prefer to omit instead of returning "low".
+
+Output ONLY the JSON. No markdown fences. No prose before or after.
 '''
 
 
@@ -110,7 +144,10 @@ def precheck_image(image_path: str) -> dict:
         path = Path(image_path)
         model = genai.GenerativeModel(
             settings.GEMINI_MODEL,
-            generation_config={'response_mime_type': 'application/json'},
+            generation_config={
+                'response_mime_type': 'application/json',
+                'temperature': 0,
+            },
         )
         response = model.generate_content([
             {'mime_type': _mime_for(path), 'data': path.read_bytes()},
@@ -148,12 +185,25 @@ def extract_text(image_path: str) -> str:
     return response.text or ''
 
 
+# Aggregate / non-subject rows the LLM sometimes returns despite the
+# prompt — drop them post-hoc so we never store "Total: 78" as a subject.
+_NOT_A_SUBJECT = {
+    'total', 'totals', 'average', 'overall', 'overall average',
+    'aggregate', 'achievement level', 'composite', 'grand total',
+    'attendance', 'conduct', 'effort', 'application', 'participation',
+    'extra mural', 'extra-mural', 'extramural', 'comment', 'comments',
+    'signature', 'principal', 'class teacher',
+}
+
+
 def extract_subjects(image_path: str) -> dict | None:
     """
     Preferred path — returns:
-        {'subjects': [{'name': 'Mathematics', 'mark': 65}, ...],
+        {'subjects': [{'name': 'Mathematics', 'mark': 65,
+                       'confidence': 'high'}, ...],
          'school': '<name or null>',
-         'grade': 'grade_12'}
+         'grade': 'grade_12',
+         'board': 'DBE'}
     Returns None if Gemini didn't produce parseable JSON.
     """
     if not is_available():
@@ -162,7 +212,12 @@ def extract_subjects(image_path: str) -> dict | None:
     path = Path(image_path)
     model = genai.GenerativeModel(
         settings.GEMINI_MODEL,
-        generation_config={'response_mime_type': 'application/json'},
+        generation_config={
+            'response_mime_type': 'application/json',
+            # Temperature 0 for OCR — we want deterministic, not creative.
+            # Any randomness here turns into wrong marks.
+            'temperature': 0,
+        },
     )
     image_bytes = path.read_bytes()
     response = model.generate_content([
@@ -179,15 +234,43 @@ def extract_subjects(image_path: str) -> dict | None:
         return None
 
     subjects = data.get('subjects') or []
-    # Defensive normalisation
     cleaned = []
+    seen_names = set()
     for s in subjects:
         name = (s.get('name') or '').strip()
+        confidence = (s.get('confidence') or 'high').strip().lower()
         try:
             mark = int(s.get('mark'))
         except (TypeError, ValueError):
             continue
-        if name and 0 <= mark <= 100:
-            cleaned.append({'name': name, 'mark': mark})
+        if not name or not (0 <= mark <= 100):
+            continue
+        # Drop low-confidence guesses — better to ask the user to verify
+        # a missing row than to silently feed a wrong mark into APS.
+        if confidence == 'low':
+            logger.info('Dropping low-confidence row: %s (%d)', name, mark)
+            continue
+        # Drop aggregate / non-academic rows that slipped through.
+        lname = name.lower().strip()
+        if lname in _NOT_A_SUBJECT:
+            continue
+        # Dedupe — if the LLM returned the same subject twice (mid-term +
+        # final), keep the higher mark (matches the merge logic users see
+        # downstream in best-marks-across-reports).
+        key = lname
+        if key in seen_names:
+            for existing in cleaned:
+                if existing['name'].lower() == key:
+                    if mark > existing['mark']:
+                        existing['mark'] = mark
+                        existing['confidence'] = confidence
+                    break
+            continue
+        seen_names.add(key)
+        cleaned.append({
+            'name': name,
+            'mark': mark,
+            'confidence': confidence,
+        })
     data['subjects'] = cleaned
     return data
