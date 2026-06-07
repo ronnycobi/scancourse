@@ -365,27 +365,48 @@ class ImprovementPlanView(APIView):
         dream_career = getattr(user, 'dream_career', '') or ''
         preferred_field = getattr(user, 'preferred_field', '') or ''
 
-        # Step 1 — deterministic plan from real data. ALWAYS succeeds.
-        plan = _deterministic_plan(
-            subjects=merged['subjects'],
-            total_aps=merged['total_aps'],
-            saved_courses=saved_courses,
-            grade=grade,
-            dream_career=dream_career,
-            preferred_field=preferred_field,
-        )
+        # Step 1 — deterministic plan from real data. Should ALWAYS
+        # succeed, but if some unexpected shape blows it up we still
+        # ship a safe minimal plan rather than 500ing the request.
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            plan = _deterministic_plan(
+                subjects=merged['subjects'],
+                total_aps=merged['total_aps'],
+                saved_courses=saved_courses,
+                grade=grade,
+                dream_career=dream_career,
+                preferred_field=preferred_field,
+            )
+        except Exception as e:
+            logger.exception('Deterministic plan failed: %s', e)
+            plan = {
+                'summary': f'You have {merged["total_aps"]} APS. '
+                           'Save a few courses to get tailored next steps.',
+                'actions': [{
+                    'title': 'Browse courses',
+                    'description':
+                        'Open the courses tab and save 3-5 programmes that '
+                        'match your interests so we can build a real plan.',
+                    'impact': 'Save courses to start',
+                }],
+            }
 
         # Step 2 — optional Gemini polish. If it fails, return the rules-
         # based plan untouched so the user still sees something useful.
-        polished = _polish_plan_with_ai(
-            plan,
-            subjects=merged['subjects'],
-            total_aps=merged['total_aps'],
-            grade=grade,
-            dream_career=dream_career,
-        )
-        if polished is not None:
-            plan = polished
+        try:
+            polished = _polish_plan_with_ai(
+                plan,
+                subjects=merged['subjects'],
+                total_aps=merged['total_aps'],
+                grade=grade,
+                dream_career=dream_career,
+            )
+            if polished is not None:
+                plan = polished
+        except Exception as e:
+            logger.warning('Plan polish wrapper failed: %s', e)
 
         return Response({
             'total_aps': merged['total_aps'],
