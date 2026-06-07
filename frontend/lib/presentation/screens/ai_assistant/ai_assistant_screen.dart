@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/services/api/api_client.dart';
 
@@ -236,14 +238,73 @@ class _ChatBubble extends StatelessWidget {
                 ),
                 border: message.isUser ? null : Border.all(color: AppColors.border),
               ),
-              child: Text(
-                message.content,
-                style: TextStyle(
-                  color: message.isUser ? Colors.white : AppColors.textPrimary,
-                  fontSize: 14,
-                  height: 1.5,
-                ),
-              ),
+              // User messages stay as plain Text — they don't contain
+              // markdown. Assistant messages render through MarkdownBody
+              // so the **bold**, * bullets, headings etc. are actually
+              // formatted instead of leaking as raw asterisks.
+              child: message.isUser
+                  ? Text(
+                      message.content,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    )
+                  : MarkdownBody(
+                      data: message.content,
+                      selectable: true,
+                      onTapLink: (text, href, title) {
+                        if (href == null) return;
+                        final uri = Uri.tryParse(href);
+                        if (uri != null) {
+                          launchUrl(uri,
+                              mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      styleSheet: MarkdownStyleSheet(
+                        p: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                        strong: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                        em: const TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: AppColors.textPrimary,
+                        ),
+                        h1: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary),
+                        h2: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary),
+                        h3: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary),
+                        listBullet: const TextStyle(
+                            color: AppColors.textPrimary, fontSize: 14),
+                        a: const TextStyle(
+                            color: AppColors.primary,
+                            decoration: TextDecoration.underline),
+                        code: TextStyle(
+                          fontSize: 13,
+                          backgroundColor:
+                              AppColors.surface.withOpacity(0.6),
+                          color: AppColors.textPrimary,
+                        ),
+                        blockquote: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
             ),
           ),
           if (message.isUser) const SizedBox(width: 8),
