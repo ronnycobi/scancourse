@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
+import '../../widgets/common/app_avatar.dart';
 import '../../widgets/common/app_text_field.dart';
 import '../../widgets/common/multi_select_sheet.dart';
 import '../../widgets/common/error_banner.dart';
@@ -113,6 +114,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final xFile = await picker.pickImage(source: source, imageQuality: 85);
     if (xFile == null) return;
     await _storage.write(key: _imagePathKey, value: xFile.path);
+    // Invalidate the global avatar provider so the home header,
+    // bursaries header, settings tile etc. immediately pick up the
+    // new image instead of keeping their cached initials forever.
+    ref.invalidate(profileImagePathProvider);
     setState(() => _pickedImage = File(xFile.path));
   }
 
