@@ -85,10 +85,13 @@ android {
             signingConfig keystorePropertiesFile.exists()
                 ? signingConfigs.release
                 : signingConfigs.debug
-            // Shrink + obfuscate. Flutter handles native code separately;
-            // these only affect Kotlin/Java.
-            minifyEnabled false
-            shrinkResources false
+            // Shrink + obfuscate the Android Java/Kotlin layer. Flutter
+            // handles Dart obfuscation separately via --obfuscate. R8
+            // minify produces the mapping.txt that Play asks for in
+            // the "deobfuscation file" upload slot.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
