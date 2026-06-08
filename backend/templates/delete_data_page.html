@@ -1,0 +1,266 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete Your Account — Scancourse</title>
+  <meta name="description" content="Request deletion of your Scancourse account and all associated personal data." />
+  <meta name="theme-color" content="#1E40AF" />
+  <link rel="icon" type="image/png" href="{% static 'landing/scancourse-logo.png' %}" />
+  <style>
+    :root {
+      --primary: #1E40AF;
+      --primary-dark: #1E3A8A;
+      --primary-light: #DBEAFE;
+      --text: #0F172A;
+      --text-secondary: #475569;
+      --text-hint: #94A3B8;
+      --bg: #FFFFFF;
+      --surface: #F8FAFC;
+      --border: #E2E8F0;
+      --error: #DC2626;
+      --error-light: #FEE2E2;
+      --success: #16A34A;
+      --warning: #D97706;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text); background: var(--bg);
+      line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header.nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: saturate(180%) blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: 900px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; font-size: 17px; color: var(--text);
+    }
+    .brand img { width: 30px; height: 30px; border-radius: 8px; }
+    .page-hero {
+      background: linear-gradient(180deg, #FEF2F2 0%, #FFFFFF 100%);
+      padding: 56px 24px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-hero-inner { max-width: 720px; margin: 0 auto; }
+    .crumb {
+      color: var(--error); font-size: 12px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+    }
+    .page-hero h1 {
+      font-size: 32px; font-weight: 800; letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+    .page-hero p {
+      color: var(--text-secondary); font-size: 15px; max-width: 540px;
+    }
+    main {
+      max-width: 720px; margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+    .card {
+      background: white; border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px; margin-bottom: 20px;
+    }
+    .card.warning {
+      background: #FFFBEB; border-color: rgba(217, 119, 6, 0.3);
+    }
+    .card.success {
+      background: #ECFDF5; border-color: rgba(22, 163, 74, 0.3);
+    }
+    .card h2 {
+      font-size: 16px; font-weight: 800; margin-bottom: 12px;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .card.warning h2 { color: var(--warning); }
+    .card.success h2 { color: var(--success); }
+    .card p { font-size: 14px; color: var(--text-secondary); margin-bottom: 10px; }
+    .card p:last-child { margin-bottom: 0; }
+    .card ul {
+      margin-left: 22px; font-size: 14px;
+      color: var(--text-secondary); margin-top: 6px;
+    }
+    .card ul li { margin-bottom: 6px; }
+    label {
+      display: block; font-size: 13px; font-weight: 600;
+      color: var(--text); margin-bottom: 6px; margin-top: 16px;
+    }
+    label:first-of-type { margin-top: 0; }
+    input[type=email], input[type=password], textarea {
+      width: 100%; border: 1px solid var(--border); border-radius: 10px;
+      padding: 11px 12px; font-size: 14px; font-family: inherit;
+      background: white; color: var(--text);
+      transition: border-color .12s, box-shadow .12s;
+    }
+    input:focus, textarea:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.12);
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    .checkbox-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin-top: 18px; font-size: 13px; color: var(--text-secondary);
+    }
+    .checkbox-row input[type=checkbox] {
+      width: 18px; height: 18px; margin-top: 1px;
+      accent-color: var(--error); cursor: pointer; flex-shrink: 0;
+    }
+    button {
+      margin-top: 18px; width: 100%;
+      background: var(--error); color: white; border: 0;
+      padding: 13px; border-radius: 10px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      transition: background .12s;
+    }
+    button:hover { background: #B91C1C; }
+    .alert {
+      padding: 12px 14px; border-radius: 10px;
+      margin-bottom: 16px; font-size: 13px;
+    }
+    .alert.error {
+      background: var(--error-light); color: var(--error);
+      border: 1px solid rgba(220, 38, 38, 0.3);
+    }
+    .alert ul { margin-left: 18px; margin-top: 4px; }
+    footer {
+      padding: 32px 24px; border-top: 1px solid var(--border);
+      background: var(--surface); text-align: center;
+      color: var(--text-hint); font-size: 13px;
+    }
+    .center-actions { text-align: center; margin-top: 16px; }
+    .center-actions a {
+      display: inline-block; font-size: 13px; font-weight: 600;
+      padding: 8px 16px; border-radius: 8px;
+      color: var(--primary); border: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <img src="{% static 'landing/scancourse-logo.png' %}" alt="" />
+        Scancourse
+      </a>
+      <a href="/" style="font-size:14px;color:var(--text-secondary);">← Back to home</a>
+    </div>
+  </header>
+
+  <section class="page-hero">
+    <div class="page-hero-inner">
+      <div class="crumb">Right to erasure</div>
+      <h1>Delete your account</h1>
+      <p>Sign in below to permanently delete your Scancourse account and all associated personal data. This action can be reversed within 30 days by signing in again.</p>
+    </div>
+  </section>
+
+  <main>
+
+    {% if scheduled %}
+      {# Success — deletion has been scheduled #}
+      <div class="card success">
+        <h2>✓ Deletion scheduled</h2>
+        <p>Your account is now suspended and queued for permanent deletion on <strong>{{ scheduled_for|date:"j F Y" }}</strong>.</p>
+        <p>If you change your mind, sign in to the app before that date and the deletion will be cancelled automatically.</p>
+        <p>After {{ scheduled_for|date:"j F Y" }} all personal data will be erased. Aggregated anonymous statistics that no longer identify you may be retained.</p>
+      </div>
+      <div class="center-actions">
+        <a href="/">Back to home</a>
+      </div>
+
+    {% elif already_scheduled %}
+      {# A pending deletion request already exists #}
+      <div class="card warning">
+        <h2>Already scheduled</h2>
+        <p>Your account is already queued for deletion on <strong>{{ scheduled_for|date:"j F Y" }}</strong>.</p>
+        <p>Sign in to the app before that date if you want to cancel.</p>
+      </div>
+      <div class="center-actions">
+        <a href="/">Back to home</a>
+      </div>
+
+    {% else %}
+      {# Initial form #}
+      <div class="card warning">
+        <h2>What will be deleted</h2>
+        <ul>
+          <li>Account information (name, email, phone number, password).</li>
+          <li>Academic data (uploaded reports, subjects, marks, calculated APS).</li>
+          <li>Saved courses, bursaries and accommodation.</li>
+          <li>Application tracking history.</li>
+          <li>Profile preferences (grade, province, dream career, interests).</li>
+          <li>AI assistant chat history.</li>
+        </ul>
+        <p style="margin-top:12px;"><strong>What is retained:</strong> aggregated anonymous statistics that no longer identify you, and information we are legally required to retain.</p>
+        <p><strong>Timing:</strong> your account is suspended immediately and permanently erased within 30 days. You can cancel by signing in again during that time.</p>
+      </div>
+
+      <div class="card">
+        <h2>Confirm your account</h2>
+        <p>Enter the email and password you use to sign in. We verify these to make sure no one else can delete your account.</p>
+
+        {% if errors %}
+          <div class="alert error">
+            <strong>Please fix the following:</strong>
+            <ul>
+              {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        <form method="post" action="/legal/delete-data/">
+          {% csrf_token %}
+
+          <label for="email">Email address</label>
+          <input type="email" id="email" name="email" required
+                 autocomplete="email"
+                 maxlength="200"
+                 value="{{ form.email|default:'' }}"
+                 placeholder="you@email.com" />
+
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required
+                 autocomplete="current-password" />
+
+          <label for="reason">Why are you leaving? (optional)</label>
+          <textarea id="reason" name="reason" maxlength="500"
+                    placeholder="Helps us improve."></textarea>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="confirm" name="confirm" required />
+            <label for="confirm" style="margin:0;font-weight:500;color:var(--text-secondary);">
+              I understand that my account and all associated data will be deleted within 30 days, and that this can only be reversed by signing in again before then.
+            </label>
+          </div>
+
+          <button type="submit">Delete my account</button>
+
+          <p style="margin-top:14px;font-size:11px;color:var(--text-hint);text-align:center;">
+            Need help instead? Email
+            <a href="mailto:info@scancourse.co.za">info@scancourse.co.za</a>.
+            See our <a href="/legal/privacy/">Privacy Policy</a>.
+          </p>
+        </form>
+      </div>
+    {% endif %}
+
+  </main>
+
+  <footer>
+    © {% now "Y" %} Scancourse · <a href="https://scancourse.co.za">scancourse.co.za</a> · info@scancourse.co.za
+  </footer>
+
+</body>
+</html>

@@ -43,6 +43,63 @@ def _legal_page(request, slug):
     })
 
 
+def delete_data_page(request):
+    """Public page where any user can request account deletion.
+
+    Required by Google Play's data safety section — Play wants a public
+    URL that a user (or Google's reviewer) can hit without installing
+    the app. GET renders the form, POST verifies credentials, soft-
+    disables the account, and schedules deletion 30 days out (matching
+    the in-app flow via RequestAccountDeletionView).
+    """
+    from django.contrib.auth import authenticate
+    from datetime import timedelta as _td
+    if request.method == 'POST':
+        email = (request.POST.get('email') or '').strip().lower()[:200]
+        password = request.POST.get('password') or ''
+        confirm = request.POST.get('confirm') == 'on'
+        errors = []
+        if not email or '@' not in email:
+            errors.append('Please enter the email you signed up with.')
+        if not password:
+            errors.append('Please enter your password.')
+        if not confirm:
+            errors.append('Please tick the confirmation box.')
+        if errors:
+            return render(request, 'delete_data_page.html', {
+                'errors': errors,
+                'form': {'email': email},
+            })
+        # Match by email — authenticate uses USERNAME_FIELD which is email here.
+        user = authenticate(request, username=email, password=password)
+        if user is None:
+            return render(request, 'delete_data_page.html', {
+                'errors': ['Email or password is incorrect.'],
+                'form': {'email': email},
+            })
+        # Don't double-schedule if a pending request already exists.
+        existing = AccountDeletionRequest.objects.filter(
+            user=user, status='pending').first()
+        if existing:
+            return render(request, 'delete_data_page.html', {
+                'already_scheduled': True,
+                'scheduled_for': existing.scheduled_for,
+            })
+        scheduled = timezone.now() + _td(days=30)
+        AccountDeletionRequest.objects.create(
+            user=user,
+            reason=(request.POST.get('reason') or '')[:500],
+            scheduled_for=scheduled,
+        )
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        return render(request, 'delete_data_page.html', {
+            'scheduled': True,
+            'scheduled_for': scheduled,
+        })
+    return render(request, 'delete_data_page.html', {})
+
+
 def privacy_page(request):       return _legal_page(request, 'privacy')
 def terms_page(request):         return _legal_page(request, 'terms')
 def cookies_page(request):       return _legal_page(request, 'cookies')

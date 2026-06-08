@@ -46,6 +46,11 @@ urlpatterns = [
     # /legal/contact/ accepts both GET and POST so the form on the page
     # can submit to itself.
     path('legal/contact/', legal_views.contact_page, name='legal-contact-page'),
+    # Public account-deletion page — required by Google Play's data
+    # safety section. Gives Play reviewers (and any user) a URL they
+    # can hit without installing the app to request erasure.
+    path('legal/delete-data/', legal_views.delete_data_page,
+         name='legal-delete-data-page'),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_v1)),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
