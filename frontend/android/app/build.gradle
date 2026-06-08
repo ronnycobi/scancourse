@@ -92,6 +92,13 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Bundle native debug symbols (the libapp.so / libflutter.so
+            // ELF symbol tables) inside the AAB so Play extracts them
+            // automatically. Avoids the manual "Native debug symbols"
+            // upload, which doesn't accept Flutter's Dart .symbols files.
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
         }
     }
 }
