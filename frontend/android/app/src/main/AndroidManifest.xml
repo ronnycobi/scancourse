@@ -11,6 +11,11 @@
     <!-- Push notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Advertising ID — required by AdMob and Play's ad-ID policy.
+         Declared now so the Play Console "Advertising ID" warning
+         clears; actual ad serving is wired up later when AdMob ships. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+
     <application
         android:label="Scancourse"
         android:name="${applicationName}"
