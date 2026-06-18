@@ -51,6 +51,12 @@ urlpatterns = [
     # can hit without installing the app to request erasure.
     path('legal/delete-data/', legal_views.delete_data_page,
          name='legal-delete-data-page'),
+    # Public password-reset landing page. The big button inside the
+    # password-reset email points here with ?uid=...&token=... in the
+    # query string. The page POSTs to the existing API endpoint via
+    # fetch() — no need for the app to be installed.
+    path('reset-password/', legal_views.reset_password_page,
+         name='reset-password-page'),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_v1)),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

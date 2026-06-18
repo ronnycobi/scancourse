@@ -43,6 +43,15 @@ def _legal_page(request, slug):
     })
 
 
+def reset_password_page(request):
+    """Public web page where a user lands from the password-reset email
+    button. Reads uid + token from the URL, shows a "new password" form,
+    and POSTs to the existing /api/v1/auth/password-reset/confirm/
+    endpoint via fetch() from inline JS. Works on any device without
+    the app installed."""
+    return render(request, 'reset_password_page.html', {})
+
+
 def delete_data_page(request):
     """Public page where any user can request account deletion.
 

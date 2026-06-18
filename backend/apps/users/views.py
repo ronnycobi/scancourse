@@ -12,8 +12,10 @@ from .serializers import (
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.conf import settings
+from django.template.loader import render_to_string
+from datetime import datetime as _datetime
 from .models import SavedItem
 
 User = get_user_model()
@@ -173,19 +175,30 @@ class PasswordResetRequestView(APIView):
         if user:
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            reset_url = f'scancourse://reset?uid={uid}&token={token}'
-            send_mail(
+            # Web URL hosts the reset form — works on any device without
+            # the app installed. The token + uid stay hidden from the
+            # user; they just tap the button in the email.
+            base = getattr(
+                settings, 'WEBSITE_BASE_URL', 'https://scancourse.co.za')
+            reset_url = f'{base}/reset-password/?uid={uid}&token={token}'
+            ctx = {
+                'first_name': user.first_name or 'there',
+                'reset_url': reset_url,
+                'year': _datetime.now().year,
+            }
+            html_body = render_to_string('emails/password_reset.html', ctx)
+            text_body = render_to_string('emails/password_reset.txt', ctx)
+            msg = EmailMultiAlternatives(
                 subject='Reset your Scancourse password',
-                message=(
-                    f'Hi {user.first_name or "there"},\n\n'
-                    f'Use this link to reset your Scancourse password:\n\n{reset_url}\n\n'
-                    f'Or open the app and use this code:\n\nUID: {uid}\nToken: {token}\n\n'
-                    f'If you did not request this, ignore this email.'
-                ),
-                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'info@scancourse.co.za'),
-                recipient_list=[user.email],
-                fail_silently=True,
+                body=text_body,
+                from_email=getattr(
+                    settings, 'DEFAULT_FROM_EMAIL', 'info@scancourse.co.za'),
+                to=[user.email],
             )
+            msg.attach_alternative(html_body, 'text/html')
+            # fail_silently=False so SMTP errors surface in logs — we
+            # already validated the SMTP wiring works end-to-end.
+            msg.send(fail_silently=False)
         # Always 200 — don't reveal existence of accounts.
         return Response({'detail': 'If that account exists, a reset link has been sent.'})
 
