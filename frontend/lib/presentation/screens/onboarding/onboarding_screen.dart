@@ -26,7 +26,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final Set<String> _selectedStudyProvinces = {};
   final _careerCtrl = TextEditingController();
 
-  static const int _totalPages = 5;
+  static const int _totalPages = 6;
 
   @override
   void dispose() {
@@ -42,6 +42,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       case 2: return _selectedFields.isNotEmpty;
       case 3: return _selectedStudyProvinces.isNotEmpty;
       case 4: return true;
+      case 5: return true;  // Scan-report step always available
       default: return false;
     }
   }
@@ -66,7 +67,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
-  Future<void> _complete() async {
+  /// Saves the profile, then routes to either /home (default) or
+  /// /scanner — driven by the last onboarding page's "Scan now" CTA.
+  Future<void> _complete({bool scanNow = false}) async {
     setState(() => _isSubmitting = true);
     try {
       await ref.read(authStateProvider.notifier).completeOnboarding({
@@ -79,7 +82,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         if (_careerCtrl.text.trim().isNotEmpty)
           'dream_career': _careerCtrl.text.trim(),
       });
-      if (mounted) context.go('/home');
+      if (mounted) context.go(scanNow ? '/scanner' : '/home');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -92,6 +95,32 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  /// Bullet row used in the "Add reports" final step.
+  Widget _bullet(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 6, right: 8),
+            child: Icon(Icons.check_circle,
+                color: AppColors.primary, size: 14),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                  fontSize: 13.5,
+                  color: AppColors.textPrimary,
+                  height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Multi-select variant — toggles membership in [selected] set.
@@ -277,6 +306,64 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       maxLines: 2,
                     ),
                   ),
+
+                  // Page 6 — Add reports (final step). Encourages the
+                  // user to scan their report card now so the rest of
+                  // the app (APS, course matching, recommendations) is
+                  // useful from the very first home-screen view.
+                  _StepPage(
+                    emoji: '📄',
+                    title: 'Add your report card',
+                    subtitle:
+                        "We'll calculate your APS and match you to courses, bursaries, and accommodation that fit your marks.",
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(14),
+                            border:
+                                Border.all(color: AppColors.primary.withOpacity(0.25)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.bolt,
+                                      color: AppColors.primary, size: 20),
+                                  SizedBox(width: 8),
+                                  Text("Why it's worth doing now",
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.primary)),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              _bullet('Instant APS — scanned in seconds.'),
+                              _bullet(
+                                  'Courses you qualify for show up first on the home screen.'),
+                              _bullet(
+                                  'Get tailored Next Steps and bursary matches.'),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          "You can also do this later from the home screen — but the app is way more useful with your marks in.",
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textHint,
+                            height: 1.45,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -296,10 +383,35 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ),
                     ),
                   LoadingButton(
-                    label: _currentPage == _totalPages - 1 ? 'Get Started 🚀' : 'Continue',
+                    label: _currentPage == _totalPages - 1
+                        ? 'Scan my report'
+                        : 'Continue',
                     isLoading: _isSubmitting,
-                    onPressed: _canProceed ? _next : null,
+                    onPressed: _canProceed
+                        ? (_currentPage == _totalPages - 1
+                            ? () => _complete(scanNow: true)
+                            : _next)
+                        : null,
                   ),
+                  // Skip option only appears on the final "Add reports"
+                  // page — let the user enter the home screen without
+                  // scanning yet if they want to look around first.
+                  if (_currentPage == _totalPages - 1)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: TextButton(
+                        onPressed:
+                            _isSubmitting ? null : () => _complete(scanNow: false),
+                        child: const Text(
+                          "Skip for now",
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
