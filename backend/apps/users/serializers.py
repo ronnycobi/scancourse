@@ -78,11 +78,29 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        user = authenticate(username=data['email'], password=data['password'])
+        # Trade-off: standard auth practice is a generic "Invalid
+        # credentials" so attackers can't enumerate which emails are
+        # registered. For a student-facing app the UX win of a clear
+        # "no account with this email" outweighs that risk — anyone
+        # determined enough can register-test the same email anyway.
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        email = (data.get('email') or '').strip().lower()
+        try:
+            existing = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({
+                'email': 'No account with this email. Tap "Create account" to sign up.',
+            })
+        if not existing.is_active:
+            raise serializers.ValidationError({
+                'email': 'This account is disabled. Email info@scancourse.co.za if you think this is wrong.',
+            })
+        user = authenticate(username=email, password=data['password'])
         if not user:
-            raise serializers.ValidationError('Invalid credentials.')
-        if not user.is_active:
-            raise serializers.ValidationError('Account is disabled.')
+            raise serializers.ValidationError({
+                'password': 'Wrong password. Tap "Forgot password" to reset it.',
+            })
         data['user'] = user
         return data
 

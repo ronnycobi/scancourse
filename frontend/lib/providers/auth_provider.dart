@@ -137,9 +137,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   String _parseError(dynamic e) {
     String _humanise(String raw) {
       // Translate the most common Django auth error strings into friendlier
-      // wording. The backend keeps the original generic phrasing on purpose
-      // (e.g. one message for "user doesn't exist" + "wrong password" to
-      // avoid leaking account existence) — we just say it more humanly.
+      // wording. The backend now distinguishes "no account with this email"
+      // from "wrong password" (UX > strict anti-enumeration for our
+      // audience), so both messages already arrive in human form — these
+      // mappings cover older / generic responses we may still see.
       final lower = raw.toLowerCase();
       if (lower.contains('invalid credentials')) {
         return 'Wrong email or password. Please check and try again.';
