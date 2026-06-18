@@ -37,6 +37,17 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Custom deep-link scheme so web pages (e.g. the
+                 password-reset success card on scancourse.co.za) can
+                 open the app directly with a single tap instead of
+                 going through Play Store. URL form: scancourse://
+                 (optionally with a host + path we may use later). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="scancourse"/>
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"
