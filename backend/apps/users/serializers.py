@@ -14,6 +14,13 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('email', 'username', 'first_name', 'last_name', 'password', 'password_confirm')
+        # Username is no longer asked of the user on the register form —
+        # we derive it from the email server-side. Kept on the model + in
+        # `fields` so existing clients that still pass username keep
+        # working unchanged.
+        extra_kwargs = {
+            'username': {'required': False, 'allow_blank': True},
+        }
 
     # ── Field-level checks (run independently — DRF reports them under
     #    the field key so the Flutter client can show inline errors).
@@ -36,7 +43,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         return v
 
     def validate_username(self, value):
+        # Now optional — if the client still sends one, lightly sanitise
+        # it. Empty/missing falls through to auto-gen in create().
         v = (value or '').strip()
+        if not v:
+            return v
         if len(v) < 3:
             raise serializers.ValidationError('Username must be at least 3 characters.')
         if not re.match(r'^[A-Za-z0-9_.]+$', v):
@@ -68,9 +79,28 @@ class RegisterSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        validated_data.pop('password_confirm')
+        validated_data.pop('password_confirm', None)
+        # Auto-fill username when the client didn't send one. Derived
+        # from the email's local-part and made unique via numeric suffix.
+        if not validated_data.get('username'):
+            validated_data['username'] = _generate_username(
+                validated_data.get('email', ''))
         user = User.objects.create_user(**validated_data)
         return user
+
+
+def _generate_username(email: str) -> str:
+    """Derive a unique username from the email. e.g.
+    `thandi.mokoena@gmail.com` -> `thandi_mokoena`, with `_1`, `_2`
+    suffixes appended on collision."""
+    local = (email or '').split('@')[0].lower()
+    base = re.sub(r'[^a-z0-9_.]+', '_', local)[:25] or 'user'
+    candidate = base
+    n = 0
+    while User.objects.filter(username=candidate).exists():
+        n += 1
+        candidate = f'{base}_{n}'
+    return candidate
 
 
 class LoginSerializer(serializers.Serializer):

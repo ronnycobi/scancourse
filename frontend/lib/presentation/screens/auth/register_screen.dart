@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../widgets/common/app_text_field.dart';
@@ -21,16 +23,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
   bool _obscure = true;
+  // Google sign-up state — mirrors login_screen.dart so users can
+  // create an account with one tap instead of filling the form.
+  bool _googleBusy = false;
+  String? _googleError;
 
   // Live error state, one per field. Updated on every keystroke.
   String? _firstNameError;
   String? _lastNameError;
   String? _emailError;
-  String? _usernameError;
   String? _passwordError;
   String? _confirmError;
   // True after the user has interacted with a field once — prevents
@@ -43,7 +47,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _firstNameCtrl.addListener(() => _liveCheck('first'));
     _lastNameCtrl.addListener(() => _liveCheck('last'));
     _emailCtrl.addListener(() => _liveCheck('email'));
-    _usernameCtrl.addListener(() => _liveCheck('username'));
     _passwordCtrl.addListener(() => _liveCheck('password'));
     _confirmCtrl.addListener(() => _liveCheck('confirm'));
   }
@@ -54,7 +57,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       _firstNameCtrl,
       _lastNameCtrl,
       _emailCtrl,
-      _usernameCtrl,
       _passwordCtrl,
       _confirmCtrl
     ]) {
@@ -82,15 +84,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (!v.contains('@') || !v.contains('.')) return 'Not a valid email';
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v)) {
       return 'Not a valid email';
-    }
-    return null;
-  }
-
-  String? _validateUsername(String v) {
-    if (v.isEmpty) return null;
-    if (v.length < 3) return 'At least 3 characters';
-    if (!RegExp(r'^[A-Za-z0-9_.]+$').hasMatch(v)) {
-      return 'Letters, numbers, _ and . only';
     }
     return null;
   }
@@ -125,9 +118,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         case 'email':
           _emailError = _validateEmail(_emailCtrl.text.trim());
           break;
-        case 'username':
-          _usernameError = _validateUsername(_usernameCtrl.text.trim());
-          break;
         case 'password':
           _passwordError = _validatePassword(_passwordCtrl.text);
           // confirm also depends on password
@@ -145,13 +135,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (_firstNameCtrl.text.trim().isEmpty) return false;
     if (_lastNameCtrl.text.trim().isEmpty) return false;
     if (_emailCtrl.text.trim().isEmpty) return false;
-    if (_usernameCtrl.text.trim().isEmpty) return false;
     if (_passwordCtrl.text.isEmpty) return false;
     if (_confirmCtrl.text.isEmpty) return false;
     return _firstNameError == null &&
         _lastNameError == null &&
         _emailError == null &&
-        _usernameError == null &&
         _passwordError == null &&
         _confirmError == null;
   }
@@ -167,8 +155,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           (_lastNameCtrl.text.trim().isEmpty ? 'Required' : null);
       _emailError = _validateEmail(_emailCtrl.text.trim()) ??
           (_emailCtrl.text.trim().isEmpty ? 'Required' : null);
-      _usernameError = _validateUsername(_usernameCtrl.text.trim()) ??
-          (_usernameCtrl.text.trim().isEmpty ? 'Required' : null);
       _passwordError = _validatePassword(_passwordCtrl.text) ??
           (_passwordCtrl.text.isEmpty ? 'Required' : null);
       _confirmError = _validateConfirm(_confirmCtrl.text) ??
@@ -178,7 +164,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     await ref.read(authStateProvider.notifier).register(
       email: _emailCtrl.text.trim(),
-      username: _usernameCtrl.text.trim(),
+      // Username left blank — backend derives one from the email.
+      username: '',
       firstName: _firstNameCtrl.text.trim(),
       lastName: _lastNameCtrl.text.trim(),
       password: _passwordCtrl.text,
@@ -188,6 +175,59 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final state = ref.read(authStateProvider);
     if (state.error == null && state.user != null) {
       context.go('/onboarding');
+    }
+  }
+
+  Future<void> _googleSignIn() async {
+    setState(() {
+      _googleBusy = true;
+      _googleError = null;
+    });
+    ref.read(authStateProvider.notifier).clearError();
+    try {
+      final google = GoogleSignIn(
+        scopes: ['email', 'profile', 'openid'],
+        serverClientId: AppConstants.googleServerClientId.isNotEmpty
+            ? AppConstants.googleServerClientId
+            : null,
+      );
+      final account = await google.signIn();
+      if (account == null) {
+        setState(() => _googleBusy = false);
+        return;
+      }
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        setState(() {
+          _googleBusy = false;
+          _googleError =
+              'Google sign-up is not fully configured yet. Please use email + password.';
+        });
+        await google.signOut();
+        return;
+      }
+      await ref.read(authStateProvider.notifier).googleSignIn(idToken);
+      if (!mounted) return;
+      final state = ref.read(authStateProvider);
+      if (state.error != null) {
+        setState(() {
+          _googleBusy = false;
+          _googleError = state.error;
+        });
+      } else if (state.user != null) {
+        // New Google users land on /onboarding; existing users skip
+        // straight to /home — the provider sets isOnboarded based on
+        // the backend response.
+        context.go(state.isOnboarded ? '/home' : '/onboarding');
+      } else {
+        setState(() => _googleBusy = false);
+      }
+    } catch (e) {
+      setState(() {
+        _googleBusy = false;
+        _googleError = 'Google sign-up failed. Please try again.';
+      });
     }
   }
 
@@ -220,7 +260,68 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   onDismiss: () =>
                       ref.read(authStateProvider.notifier).clearError(),
                 ),
+                if (_googleError != null) ...[
+                  ErrorBanner(
+                    message: _googleError,
+                    onDismiss: () =>
+                        setState(() => _googleError = null),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 const SizedBox(height: 8),
+
+                // Google one-tap signup — same backend as login: creates
+                // a user on first encounter, signs them in afterwards.
+                OutlinedButton.icon(
+                  onPressed: _googleBusy ? null : _googleSignIn,
+                  icon: _googleBusy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Image.asset(
+                          'assets/icons/google.png',
+                          width: 18,
+                          height: 18,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.account_circle_outlined,
+                                  size: 20),
+                        ),
+                  label: const Text('Continue with Google'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    side: const BorderSide(color: AppColors.border),
+                    foregroundColor: AppColors.textPrimary,
+                    textStyle: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                // "OR" divider between Google and the email form.
+                Row(
+                  children: [
+                    const Expanded(
+                        child: Divider(
+                            thickness: 1, color: AppColors.border)),
+                    Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'OR',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textHint,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5),
+                      ),
+                    ),
+                    const Expanded(
+                        child: Divider(
+                            thickness: 1, color: AppColors.border)),
+                  ],
+                ),
+                const SizedBox(height: 18),
 
                 // First name + Last name now stack vertically, full-width
                 // each — matches the email/password fields below for a
@@ -260,17 +361,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
                 _LiveField(
-                  label: 'Username',
-                  hint: 'Choose a username',
-                  controller: _usernameCtrl,
-                  prefixIcon: Icons.alternate_email,
-                  errorText: _usernameError,
-                  isValid: _touched.contains('username') &&
-                      _usernameError == null &&
-                      _usernameCtrl.text.trim().isNotEmpty,
-                ),
-                const SizedBox(height: 16),
-                _LiveField(
                   label: 'Password',
                   hint: 'At least 8 characters, with a number',
                   controller: _passwordCtrl,
@@ -291,7 +381,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 PasswordStrengthMeter(password: _passwordCtrl.text),
                 PasswordChecklist(
                   password: _passwordCtrl.text,
-                  username: _usernameCtrl.text,
                   email: _emailCtrl.text,
                 ),
                 const SizedBox(height: 16),
