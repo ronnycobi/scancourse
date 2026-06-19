@@ -7,9 +7,15 @@ import '../../widgets/common/brand_header.dart';
 import '../../widgets/common/error_banner.dart';
 import '../../widgets/common/loading_button.dart';
 
-/// Step 2 of the password-reset flow: user pastes the UID + token they
-/// received by email and sets a new password. Routes here from a deep
-/// link OR from a "I have a code" button on the forgot-password screen.
+/// Final step of the password-reset flow.
+///
+/// Two states:
+///   - Deep-link arrival (uid + token present in route): show only the
+///     new-password + confirm fields. The uid/token are already in
+///     memory and never displayed to the user.
+///   - Direct navigation (no uid/token): show a friendly "check your
+///     email" card pointing the user back to the reset email. We don't
+///     ask them to paste anything anymore — the email button does it.
 class ResetPasswordScreen extends StatefulWidget {
   /// Pre-populated values when arriving via deep link.
   final String? initialUid;
@@ -23,8 +29,6 @@ class ResetPasswordScreen extends StatefulWidget {
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _uidCtrl = TextEditingController();
-  final _tokenCtrl = TextEditingController();
   final _pwCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
   bool _obscure = true;
@@ -33,20 +37,15 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   String? _error;
 
   @override
-  void initState() {
-    super.initState();
-    _uidCtrl.text = widget.initialUid ?? '';
-    _tokenCtrl.text = widget.initialToken ?? '';
-  }
-
-  @override
   void dispose() {
-    _uidCtrl.dispose();
-    _tokenCtrl.dispose();
     _pwCtrl.dispose();
     _confirmCtrl.dispose();
     super.dispose();
   }
+
+  bool get _hasDeepLink =>
+      (widget.initialUid?.isNotEmpty ?? false) &&
+      (widget.initialToken?.isNotEmpty ?? false);
 
   Future<void> _submit() async {
     setState(() => _error = null);
@@ -60,21 +59,23 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       await ApiClient.instance.post(
         '/auth/password-reset/confirm/',
         data: {
-          'uid': _uidCtrl.text.trim(),
-          'token': _tokenCtrl.text.trim(),
+          'uid': widget.initialUid!.trim(),
+          'token': widget.initialToken!.trim(),
           'new_password': _pwCtrl.text,
         },
       );
       if (mounted) setState(() => _done = true);
     } catch (e) {
       final msg = e.toString().toLowerCase();
-      String pretty = 'Could not reset password. Check the code and try again.';
+      String pretty =
+          'Could not reset password. The reset link may have expired — request a new one.';
       if (msg.contains('invalid')) {
-        pretty = 'That reset code is invalid. Request a new one.';
+        pretty = 'That reset link is invalid. Request a new one.';
       } else if (msg.contains('expired')) {
         pretty = 'That reset link has expired. Request a new one.';
       } else if (msg.contains('8 characters') || msg.contains('at least 8')) {
-        pretty = 'Password must be at least 8 characters with a letter and digit.';
+        pretty =
+            'Password must be at least 8 characters with a letter and digit.';
       }
       if (mounted) setState(() => _error = pretty);
     } finally {
@@ -89,13 +90,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: _done ? _SuccessView() : _form(context),
+          child: _done
+              ? _SuccessView()
+              : (_hasDeepLink ? _passwordForm(context) : _checkEmailCard(context)),
         ),
       ),
     );
   }
 
-  Widget _form(BuildContext context) {
+  // ── Deep-link arrival: short password form ────────────────────────
+  Widget _passwordForm(BuildContext context) {
     return Form(
       key: _formKey,
       child: Column(
@@ -107,7 +111,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8),
           const Text(
-            'Paste the UID and Token from the reset email we sent you, then choose a new password.',
+            'Choose a new password for your Scancourse account. At least 8 characters with a letter and a digit.',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
           ),
           const SizedBox(height: 24),
@@ -115,28 +119,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               message: _error,
               onDismiss: () => setState(() => _error = null)),
           AppTextField(
-            label: 'UID (from email)',
-            hint: 'e.g. MQ',
-            controller: _uidCtrl,
-            prefixIcon: Icons.tag,
-            validator: (v) => (v?.trim().isEmpty ?? true) ? 'Paste your UID' : null,
-          ),
-          const SizedBox(height: 16),
-          AppTextField(
-            label: 'Token (from email)',
-            hint: 'e.g. cdh-a1b2c3...',
-            controller: _tokenCtrl,
-            prefixIcon: Icons.vpn_key_outlined,
-            validator: (v) =>
-                (v?.trim().isEmpty ?? true) ? 'Paste your reset token' : null,
-          ),
-          const SizedBox(height: 24),
-          AppTextField(
             label: 'New password',
             controller: _pwCtrl,
             obscureText: _obscure,
             prefixIcon: Icons.lock_outline,
             suffixIcon: IconButton(
+              tooltip: _obscure ? 'Show password' : 'Hide password',
               icon: Icon(_obscure
                   ? Icons.visibility_outlined
                   : Icons.visibility_off_outlined),
@@ -157,7 +145,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             controller: _confirmCtrl,
             obscureText: _obscure,
             prefixIcon: Icons.lock_outline,
-            validator: (v) => (v?.isEmpty ?? true) ? 'Confirm your password' : null,
+            validator: (v) =>
+                (v?.isEmpty ?? true) ? 'Confirm your password' : null,
           ),
           const SizedBox(height: 28),
           LoadingButton(
@@ -174,6 +163,88 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ── No deep link: explain how to use the email ────────────────────
+  Widget _checkEmailCard(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const BrandHeader(),
+        const SizedBox(height: 28),
+        Text('Check your email',
+            style: Theme.of(context).textTheme.headlineMedium),
+        const SizedBox(height: 8),
+        const Text(
+          "We sent you a reset link. Tap the button in the email to choose a new password.",
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        ),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Row(
+                children: [
+                  Icon(Icons.mark_email_read_outlined,
+                      color: AppColors.primary, size: 22),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Look for an email from info@scancourse.co.za",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              Text(
+                "Subject: \"Reset your Scancourse password\".\n"
+                "Tap the big blue button inside — that's it.",
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              SizedBox(height: 14),
+              Text(
+                "Can't find it? Check your spam folder.",
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.textHint,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        OutlinedButton.icon(
+          onPressed: () => context.go('/forgot-password'),
+          icon: const Icon(Icons.refresh_outlined),
+          label: const Text('Send a new reset email'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextButton(
+          onPressed: () => context.go('/login'),
+          child: const Text('Back to login'),
+        ),
+      ],
     );
   }
 }
