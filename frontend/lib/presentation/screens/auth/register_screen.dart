@@ -222,33 +222,30 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                Row(children: [
-                  Expanded(
-                    child: _LiveField(
-                      label: 'First name',
-                      hint: 'Thandi',
-                      controller: _firstNameCtrl,
-                      prefixIcon: Icons.person_outline,
-                      errorText: _firstNameError,
-                      isValid: _touched.contains('first') &&
-                          _firstNameError == null &&
-                          _firstNameCtrl.text.trim().isNotEmpty,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _LiveField(
-                      label: 'Last name',
-                      hint: 'Mokoena',
-                      controller: _lastNameCtrl,
-                      prefixIcon: Icons.person_outline,
-                      errorText: _lastNameError,
-                      isValid: _touched.contains('last') &&
-                          _lastNameError == null &&
-                          _lastNameCtrl.text.trim().isNotEmpty,
-                    ),
-                  ),
-                ]),
+                // First name + Last name now stack vertically, full-width
+                // each — matches the email/password fields below for a
+                // cleaner, more readable form on small SA phone screens.
+                _LiveField(
+                  label: 'First name',
+                  hint: 'Thandi',
+                  controller: _firstNameCtrl,
+                  prefixIcon: Icons.person_outline,
+                  errorText: _firstNameError,
+                  isValid: _touched.contains('first') &&
+                      _firstNameError == null &&
+                      _firstNameCtrl.text.trim().isNotEmpty,
+                ),
+                const SizedBox(height: 16),
+                _LiveField(
+                  label: 'Last name',
+                  hint: 'Mokoena',
+                  controller: _lastNameCtrl,
+                  prefixIcon: Icons.person_outline,
+                  errorText: _lastNameError,
+                  isValid: _touched.contains('last') &&
+                      _lastNameError == null &&
+                      _lastNameCtrl.text.trim().isNotEmpty,
+                ),
                 const SizedBox(height: 16),
                 _LiveField(
                   label: 'Email address',
