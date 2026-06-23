@@ -16,7 +16,7 @@ class AppConstants {
   static const String googleServerClientId = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',
     defaultValue:
-        '610772172168-kmomesik8c5b5s3otp315ui6233j8tlq.apps.googleusercontent.com',
+        '32123396143-k7sctpqvpo1ucn3t8hp0akrvon9cp1qi.apps.googleusercontent.com',
   );
 
   // Local storage keys

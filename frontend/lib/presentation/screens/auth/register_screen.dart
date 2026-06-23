@@ -224,9 +224,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         setState(() => _googleBusy = false);
       }
     } catch (e) {
+      // Surface the real message so we can debug — was hiding actual
+      // SDK errors (network, signing-cert mismatch, OAuth config) under
+      // a generic "please try again".
       setState(() {
         _googleBusy = false;
-        _googleError = 'Google sign-up failed. Please try again.';
+        _googleError = 'Google sign-up failed: $e';
       });
     }
   }
