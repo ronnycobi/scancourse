@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/aps_provider.dart';
+import '../settings/settings_screen.dart' show shareScancourseApp;
 import '../../widgets/cards/aps_score_card.dart';
 // import '../../widgets/common/language_picker.dart';  // disabled — English only for now
 
@@ -276,6 +277,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                       onTap: () => context.push('/saved'),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: const Icon(Icons.person_add_alt_1_outlined,
+                          color: AppColors.primary),
+                      title: const Text('Invite a friend'),
+                      subtitle: const Text(
+                          'Share Scancourse via WhatsApp, SMS or email',
+                          style: TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: shareScancourseApp,
                     ),
                     const Divider(height: 1, indent: 56),
                     // Single entry point to everything else.

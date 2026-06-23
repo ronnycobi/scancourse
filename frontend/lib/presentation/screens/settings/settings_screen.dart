@@ -2,11 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/services/api/api_client.dart';
 import '../../../providers/auth_provider.dart';
 import '../../widgets/common/app_avatar.dart';
+
+/// Share message + URL the user sends to friends. Centralised so the
+/// home-screen invite card and the settings "Share Scancourse" row use
+/// the same copy and stay easy to update.
+const _kInviteMessage =
+    "I'm using Scancourse to find courses and bursaries that match my marks. "
+    "Scan your matric report and it shows you exactly where you qualify. "
+    "Try it: https://play.google.com/store/apps/details?id=com.scancourse.app";
+
+void shareScancourseApp() {
+  Share.share(_kInviteMessage, subject: 'Try Scancourse');
+}
 
 /// Storage key for the per-device in-app push toggle. Read by PushService
 /// before showing a foreground heads-up notification.
@@ -247,6 +260,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 icon: Icons.warning_amber_outlined,
                 label: 'Disclaimer',
                 onTap: () => context.push('/legal/disclaimer'),
+              ),
+            ],
+          ),
+
+          // ── Share / invite ──────────────────────────────────────────
+          _Section(
+            title: 'Spread the word',
+            children: [
+              _Row(
+                icon: Icons.person_add_alt_1_outlined,
+                label: 'Invite a friend',
+                subtitle: 'Help another matric figure out where they qualify',
+                onTap: shareScancourseApp,
+              ),
+              _Row(
+                icon: Icons.share_outlined,
+                label: 'Share Scancourse',
+                subtitle: 'Send the Play Store link via WhatsApp, SMS or email',
+                onTap: shareScancourseApp,
+              ),
+              _Row(
+                icon: Icons.star_outline,
+                label: 'Rate on Play Store',
+                subtitle: 'A 5-star review helps other students find us',
+                onTap: () => launchUrl(
+                  Uri.parse(
+                      'https://play.google.com/store/apps/details?id=com.scancourse.app'),
+                  mode: LaunchMode.externalApplication,
+                ),
               ),
             ],
           ),
